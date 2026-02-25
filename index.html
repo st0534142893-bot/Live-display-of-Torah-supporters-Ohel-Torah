@@ -560,7 +560,11 @@
                 </div>
                 <div class="liveview-setting-group">
                     <h4>סדר קבוצות</h4>
-                    <div class="liveview-setting-row"><label>מיין קבוצות:</label><select id="lvGroupsSortBy"><option value="name">שם (א-ב)</option><option value="collected">סכום (גבוה לנמוך)</option><option value="percentage">אחוז יעד</option></select></div>
+                    <div class="liveview-setting-row"><label>מיין קבוצות:</label><select id="lvGroupsSortBy"><option value="name">שם (א-ב)</option><option value="collected">סכום (גבוה לנמוך)</option><option value="percentage">אחוז יעד</option><option value="custom">סדר מותאם אישית</option></select></div>
+                    <div class="liveview-setting-row" id="lvGroupsCustomOrderRow" style="display: none; flex-direction: column; align-items: stretch;">
+                        <label>סדר הצגה (שורה אחת לכל קבוצה, מלמעלה למטה):</label>
+                        <textarea id="lvGroupsCustomOrder" rows="4" placeholder="שיעור א&#10;שיעור ב&#10;שיעור ג" style="width: 100%; padding: 8px; border-radius: 8px; font-size: 14px; margin-top: 4px;"></textarea>
+                    </div>
                 </div>
                 <div class="liveview-setting-group">
                     <h4>עדכון אוטומטי</h4>
@@ -642,6 +646,7 @@
             enableAutoScroll: true,
             donorsScrollSpeed: 50,
             groupsSortBy: 'name',
+            groupsCustomOrder: '',
             donorsSortBy: 'name',
             donorsFilter: 'with-amount',
             leadersColumnScroll: 'groups',
@@ -853,18 +858,37 @@
 
         let visibleGroups = groups.filter(g => g.showInLiveView !== false);
         const sortBy = liveViewSettings.groupsSortBy || 'name';
-        visibleGroups = [...visibleGroups].sort((a, b) => {
-            const gDonorsA = getDonorsForGroup(a);
-            const gDonorsB = getDonorsForGroup(b);
-            const collectedA = gDonorsA.reduce((s, d) => s + (d.amount || 0), 0);
-            const collectedB = gDonorsB.reduce((s, d) => s + (d.amount || 0), 0);
-            const pctA = (a.goal || 0) > 0 ? (collectedA / a.goal) * 100 : 0;
-            const pctB = (b.goal || 0) > 0 ? (collectedB / b.goal) * 100 : 0;
-            if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '', 'he');
-            if (sortBy === 'collected') return collectedB - collectedA;
-            if (sortBy === 'percentage') return pctB - pctA;
-            return (a.name || '').localeCompare(b.name || '', 'he');
-        });
+        const customOrder = (liveViewSettings.groupsCustomOrder || '').split(/\n/).map(s => s.trim()).filter(Boolean);
+        if (sortBy === 'custom' && customOrder.length > 0) {
+            const orderMap = new Map();
+            customOrder.forEach((name, idx) => {
+                const key = (name || '').toLowerCase();
+                if (!orderMap.has(key)) orderMap.set(key, idx);
+            });
+            visibleGroups = [...visibleGroups].sort((a, b) => {
+                const nameA = (a.name || '').trim();
+                const nameB = (b.name || '').trim();
+                const idxA = orderMap.get(nameA.toLowerCase());
+                const idxB = orderMap.get(nameB.toLowerCase());
+                if (idxA != null && idxB != null) return idxA - idxB;
+                if (idxA != null) return -1;
+                if (idxB != null) return 1;
+                return nameA.localeCompare(nameB, 'he');
+            });
+        } else {
+            visibleGroups = [...visibleGroups].sort((a, b) => {
+                const gDonorsA = getDonorsForGroup(a);
+                const gDonorsB = getDonorsForGroup(b);
+                const collectedA = gDonorsA.reduce((s, d) => s + (d.amount || 0), 0);
+                const collectedB = gDonorsB.reduce((s, d) => s + (d.amount || 0), 0);
+                const pctA = (a.goal || 0) > 0 ? (collectedA / a.goal) * 100 : 0;
+                const pctB = (b.goal || 0) > 0 ? (collectedB / b.goal) * 100 : 0;
+                if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '', 'he');
+                if (sortBy === 'collected') return collectedB - collectedA;
+                if (sortBy === 'percentage') return pctB - pctA;
+                return (a.name || '').localeCompare(b.name || '', 'he');
+            });
+        }
         const groupsCardsHtml = visibleGroups.map(g => {
             const gDonors = getDonorsForGroup(g);
             const collected = gDonors.reduce((s, d) => s + (d.amount || 0), 0);
@@ -1237,6 +1261,9 @@
         set('lvDonorGap', s.donorGap || 10);
         set('lvDonorsScrollSpeed', s.donorsScrollSpeed || 50);
         set('lvGroupsSortBy', s.groupsSortBy || 'name');
+        set('lvGroupsCustomOrder', s.groupsCustomOrder || '');
+        const customRow = document.getElementById('lvGroupsCustomOrderRow');
+        if (customRow) customRow.style.display = (s.groupsSortBy === 'custom') ? 'flex' : 'none';
         setSpan('lvTitleSizeVal', (s.titleSize || 32) + 'px');
         setSpan('lvDonorNameSizeVal', (s.donorNameSize || 18) + 'px');
         setSpan('lvAmountSizeVal', (s.amountSize || 16) + 'px');
@@ -1255,6 +1282,11 @@
         set('lvUpdateType', s.updateType || 'all');
     }
     function bindSettingsInputs() {
+        const groupsSortEl = document.getElementById('lvGroupsSortBy');
+        const customRow = document.getElementById('lvGroupsCustomOrderRow');
+        if (groupsSortEl && customRow) {
+            groupsSortEl.onchange = () => { customRow.style.display = (groupsSortEl.value === 'custom') ? 'flex' : 'none'; };
+        }
         const range = (id, spanId, suffix) => {
             const el = document.getElementById(id);
             const span = document.getElementById(spanId);
@@ -1282,6 +1314,7 @@
             donorGap: parseInt(document.getElementById('lvDonorGap')?.value) || 10,
             donorsScrollSpeed: parseInt(document.getElementById('lvDonorsScrollSpeed')?.value) || 50,
             groupsSortBy: document.getElementById('lvGroupsSortBy')?.value || 'name',
+            groupsCustomOrder: (document.getElementById('lvGroupsCustomOrder')?.value || '').trim(),
             hideLeadersColumn: !!document.getElementById('lvHideLeadersColumn')?.checked,
             hideLeaderCards: !!document.getElementById('lvHideLeaderCards')?.checked,
             showTotalBanner: !!document.getElementById('lvShowTotalBanner')?.checked,
