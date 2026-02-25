@@ -468,9 +468,38 @@
         }
         .switch input:checked + .switch-slider { background: var(--primary-gold); }
         .switch input:checked + .switch-slider::before { transform: translateX(22px); }
+        /* תמיכה במסכי טלוויזיה – מופעל רק כשמצב טלוויזיה מסומן */
+        @media (min-width: 1920px) {
+            body.tv-mode { font-size: 20px; }
+            body.tv-mode .leaders-title, body.tv-mode .group-header-title { font-size: 36px !important; }
+            body.tv-mode .leader-name { font-size: 22px !important; }
+            body.tv-mode .leader-total { font-size: 24px !important; }
+            body.tv-mode .leader-rank { font-size: 20px !important; }
+            body.tv-mode .live-donor-name { font-size: calc(var(--lv-donor-name-size, 18px) * 1.25) !important; }
+            body.tv-mode .live-donor-amount { font-size: calc(var(--lv-amount-size, 16px) * 1.25) !important; }
+            body.tv-mode .live-donor-card { padding: 20px 24px; min-height: 130px; }
+            body.tv-mode .live-donor-group-header { padding: 24px 28px; }
+            body.tv-mode .liveview-top-btn { width: 56px; height: 56px; min-width: 56px; min-height: 56px; }
+            body.tv-mode .live-total-banner { padding: 16px 32px; font-size: 22px; }
+            body.tv-mode .liveview-settings-modal h3 { font-size: 28px !important; }
+            body.tv-mode .liveview-setting-group h4 { font-size: 20px !important; }
+            body.tv-mode .liveview-setting-row > label:first-child { font-size: 18px; }
+            body.tv-mode .btn { padding: 16px 32px; font-size: 18px; min-height: 48px; }
+        }
+        @media (min-width: 2560px) {
+            body.tv-mode .leaders-title, body.tv-mode .group-header-title { font-size: 42px !important; }
+            body.tv-mode .leader-name { font-size: 26px !important; }
+            body.tv-mode .leader-total { font-size: 28px !important; }
+            body.tv-mode .live-donor-name { font-size: calc(var(--lv-donor-name-size, 18px) * 1.5) !important; }
+            body.tv-mode .live-donor-amount { font-size: calc(var(--lv-amount-size, 16px) * 1.5) !important; }
+            body.tv-mode .live-donor-card { padding: 24px 28px; min-height: 150px; }
+            body.tv-mode .liveview-top-btn { width: 64px; height: 64px; min-width: 64px; min-height: 64px; }
+            body.tv-mode .live-total-banner { padding: 20px 40px; font-size: 26px; }
+        }
     </style>
 </head>
 <body>
+    <script>(function(){ try { if (localStorage.getItem('tvModeEnabled') === '1') document.body.classList.add('tv-mode'); } catch(e) {} })();</script>
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-spinner"></div>
         <p style="margin-top: 16px;">טוען נתונים מנדרים פלוס...</p>
@@ -527,6 +556,16 @@
         <div class="liveview-settings-modal" onclick="event.stopPropagation()">
             <h3>הגדרות תצוגת לייב</h3>
             <div class="liveview-settings-grid">
+                <div class="liveview-setting-group">
+                    <h4>כללי</h4>
+                    <div class="liveview-setting-row">
+                        <label>הפעל מצב טלוויזיה (גופנים גדולים יותר):</label>
+                        <label class="switch">
+                            <input type="checkbox" id="lvTvModeEnabled">
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+                </div>
                 <div class="liveview-setting-group">
                     <h4>צבע רקע</h4>
                     <div class="liveview-setting-row"><label>צבע ראשי:</label><input type="color" id="lvBgColor" value="#f5e6d3"></div>
@@ -656,8 +695,12 @@
             leadersColumnScroll: 'groups',
             updateIntervalMinutes: 5,
             updateType: 'all',
+            tvModeEnabled: false,
             ...liveViewSettings
         };
+        if (liveViewSettings.tvModeEnabled === undefined && typeof localStorage !== 'undefined' && localStorage.getItem('tvModeEnabled') === '1') {
+            liveViewSettings.tvModeEnabled = true;
+        }
     }
 
     /** השוואה גמישה של groupId – מטפלת בהבדלי טיפוס, scientific notation, "group1" מול 1 */
@@ -1389,6 +1432,7 @@
         setCheck('lvHideLeadersColumn', s.hideLeadersColumn);
         setCheck('lvShowTotalBanner', s.showTotalBanner);
         setCheck('lvEnableAutoScroll', s.enableAutoScroll !== false);
+        setCheck('lvTvModeEnabled', s.tvModeEnabled);
         set('lvDonorsFilter', s.donorsFilter || 'with-amount');
         set('lvLeadersColumnScroll', s.leadersColumnScroll || 'groups');
         set('lvUpdateInterval', String(s.updateIntervalMinutes || 5));
@@ -1441,12 +1485,21 @@
             hideLeaderCards: !!document.getElementById('lvHideLeaderCards')?.checked,
             showTotalBanner: !!document.getElementById('lvShowTotalBanner')?.checked,
             enableAutoScroll: !!document.getElementById('lvEnableAutoScroll')?.checked,
+            tvModeEnabled: !!document.getElementById('lvTvModeEnabled')?.checked,
             donorsFilter: document.getElementById('lvDonorsFilter')?.value || 'with-amount',
             leadersColumnScroll: document.getElementById('lvLeadersColumnScroll')?.value || 'groups',
             updateIntervalMinutes: parseInt(document.getElementById('lvUpdateInterval')?.value) || 5,
             updateType: document.getElementById('lvUpdateType')?.value || 'all'
         };
-        try { localStorage.setItem('liveViewSettings', JSON.stringify(liveViewSettings)); } catch (e) {}
+        try {
+            localStorage.setItem('liveViewSettings', JSON.stringify(liveViewSettings));
+            localStorage.setItem('tvModeEnabled', liveViewSettings.tvModeEnabled ? '1' : '0');
+        } catch (e) {}
+        if (liveViewSettings.tvModeEnabled) {
+            document.body.classList.add('tv-mode');
+        } else {
+            document.body.classList.remove('tv-mode');
+        }
         render();
         startRefreshInterval();
         closeLiveViewSettings();
@@ -1460,7 +1513,8 @@
     async function init() {
         loadSettings();
         try {
-            if (localStorage.getItem('tvModeEnabled') === '1') document.body.classList.add('tv-mode');
+            if (liveViewSettings.tvModeEnabled) document.body.classList.add('tv-mode');
+            else document.body.classList.remove('tv-mode');
         } catch (e) {}
         const overlay = document.getElementById('loadingOverlay');
         try {
