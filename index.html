@@ -468,33 +468,36 @@
         }
         .switch input:checked + .switch-slider { background: var(--primary-gold); }
         .switch input:checked + .switch-slider::before { transform: translateX(22px); }
-        /* תמיכה במסכי טלוויזיה – מופעל רק כשמצב טלוויזיה מסומן */
-        @media (min-width: 1920px) {
-            body.tv-mode { font-size: 20px; }
-            body.tv-mode .leaders-title, body.tv-mode .group-header-title { font-size: 36px !important; }
-            body.tv-mode .leader-name { font-size: 22px !important; }
-            body.tv-mode .leader-total { font-size: 24px !important; }
-            body.tv-mode .leader-rank { font-size: 20px !important; }
-            body.tv-mode .live-donor-name { font-size: calc(var(--lv-donor-name-size, 18px) * 1.25) !important; }
-            body.tv-mode .live-donor-amount { font-size: calc(var(--lv-amount-size, 16px) * 1.25) !important; }
-            body.tv-mode .live-donor-card { padding: 20px 24px; min-height: 130px; }
-            body.tv-mode .live-donor-group-header { padding: 24px 28px; }
-            body.tv-mode .liveview-top-btn { width: 56px; height: 56px; min-width: 56px; min-height: 56px; }
-            body.tv-mode .live-total-banner { padding: 16px 32px; font-size: 22px; }
-            body.tv-mode .liveview-settings-modal h3 { font-size: 28px !important; }
-            body.tv-mode .liveview-setting-group h4 { font-size: 20px !important; }
-            body.tv-mode .liveview-setting-row > label:first-child { font-size: 18px; }
-            body.tv-mode .btn { padding: 16px 32px; font-size: 18px; min-height: 48px; }
+        /* מצב טלוויזיה – לפי https://julian.org.il/איך-בונים-אתר-שיראה-טוב-גם-בטלוויזיה-חכ/ */
+        /* טיפוגרפיה: לפחות 24px לטקסט, 36px לכותרות. הפחתת אנימציות מורכבות (רעידות במסכי טלוויזיה). */
+        body.tv-mode { font-size: 24px; }
+        body.tv-mode .leaders-title, body.tv-mode .group-header-title { font-size: 36px !important; }
+        body.tv-mode .leader-name { font-size: 26px !important; }
+        body.tv-mode .leader-total { font-size: 28px !important; }
+        body.tv-mode .leader-rank { font-size: 22px !important; }
+        body.tv-mode .live-donor-name { font-size: calc(var(--lv-donor-name-size, 18px) * 1.4) !important; }
+        body.tv-mode .live-donor-amount { font-size: calc(var(--lv-amount-size, 16px) * 1.4) !important; }
+        body.tv-mode .live-donor-card { padding: 22px 26px; min-height: 140px; }
+        body.tv-mode .live-donor-group-header { padding: 26px 30px; }
+        body.tv-mode .liveview-top-btn { width: 56px; height: 56px; min-width: 56px; min-height: 56px; }
+        body.tv-mode .live-total-banner { padding: 18px 36px; font-size: 26px; }
+        body.tv-mode .liveview-settings-modal h3 { font-size: 30px !important; }
+        body.tv-mode .liveview-setting-group h4 { font-size: 22px !important; }
+        body.tv-mode .liveview-setting-row > label:first-child { font-size: 20px; }
+        body.tv-mode .btn { padding: 18px 36px; font-size: 20px; min-height: 52px; }
+        /* הפחתת אנימציות – דפדפני טלוויזיה לא תמיד תומכים באנימציות מורכבות */
+        body.tv-mode .leader-item, body.tv-mode .live-donor-card { transition: none; }
+        body.tv-mode .liveview-top-btn { transition: none; }
+        body.tv-mode .loading-spinner { animation: none; opacity: 0.8; }
+        body.tv-mode .live-leaders-scroll-inner,
+        body.tv-mode .live-donors-scroll { will-change: auto; }
+        body.tv-mode .live-leaders-scroll-inner[data-leaders-scroll] {
+            animation: leadersScrollUpTv var(--leaders-scroll-duration, 60s) linear infinite;
+            will-change: auto;
         }
-        @media (min-width: 2560px) {
-            body.tv-mode .leaders-title, body.tv-mode .group-header-title { font-size: 42px !important; }
-            body.tv-mode .leader-name { font-size: 26px !important; }
-            body.tv-mode .leader-total { font-size: 28px !important; }
-            body.tv-mode .live-donor-name { font-size: calc(var(--lv-donor-name-size, 18px) * 1.5) !important; }
-            body.tv-mode .live-donor-amount { font-size: calc(var(--lv-amount-size, 16px) * 1.5) !important; }
-            body.tv-mode .live-donor-card { padding: 24px 28px; min-height: 150px; }
-            body.tv-mode .liveview-top-btn { width: 64px; height: 64px; min-width: 64px; min-height: 64px; }
-            body.tv-mode .live-total-banner { padding: 20px 40px; font-size: 26px; }
+        @keyframes leadersScrollUpTv {
+            0% { transform: translate3d(0, 0, 0); }
+            100% { transform: translate3d(0, calc(-1 * var(--leaders-scroll-distance, 500px)), 0); }
         }
     </style>
 </head>
@@ -559,7 +562,7 @@
                 <div class="liveview-setting-group">
                     <h4>כללי</h4>
                     <div class="liveview-setting-row">
-                        <label>הפעל מצב טלוויזיה (גופנים גדולים יותר):</label>
+                        <label>מצב טלוויזיה (גופנים גדולים, פחות אנימציות):</label>
                         <label class="switch">
                             <input type="checkbox" id="lvTvModeEnabled">
                             <span class="switch-slider"></span>
@@ -1192,6 +1195,7 @@
                 const speedValue = Math.max(10, Math.min(100, liveViewSettings.donorsScrollSpeed || 50));
                 speed = 5 + (speedValue - 10) * 65 / 90;
             }
+            if (document.body.classList.contains('tv-mode')) speed = Math.max(20, speed * 0.6);
             currentY -= speed * delta / 1000;
             if (currentY <= -half) currentY += half;
             container.style.transform = 'translate3d(0,' + Math.round(currentY) + 'px,0)';
@@ -1239,7 +1243,7 @@
         const onIteration = () => { leadersScrollLastTime = performance.now(); };
         inner.removeEventListener('animationiteration', onIteration);
         inner.addEventListener('animationiteration', onIteration);
-        const speed = 30;
+        const speed = document.body.classList.contains('tv-mode') ? 15 : 30;
         const durationMs = Math.round((contentHeight / speed) * 1000);
         inner.style.setProperty('--leaders-scroll-distance', contentHeight + 'px');
         inner.style.setProperty('--leaders-scroll-duration', durationMs + 'ms');
