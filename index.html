@@ -645,6 +645,7 @@
     let buttonsHideTimer = null;
     const BUTTONS_HIDE_DELAY_MS = 3000;
     let savedDonorsScrollY = null;
+    let savedDonorsScrollRatio = null;
     let savedLeadersScrollProgress = null;
 
     function getUrlParam(name) {
@@ -1158,9 +1159,9 @@
         }
 
         if (liveViewSettings.enableAutoScroll && donorsScroll) {
-            requestAnimationFrame(() => startDonorsScroll());
+            requestAnimationFrame(() => requestAnimationFrame(() => startDonorsScroll()));
         }
-        requestAnimationFrame(() => startLeadersScroll());
+        requestAnimationFrame(() => requestAnimationFrame(() => startLeadersScroll()));
     }
 
     function startDonorsScroll() {
@@ -1181,13 +1182,11 @@
         }
 
         if (isTvMode && viewport) {
-            viewport.scrollTop = 0;
-            const fromSaved = container._scrollSavedY != null ? container._scrollSavedY : savedDonorsScrollY;
-            if (fromSaved != null && fromSaved >= 0 && fromSaved < half) {
-                viewport.scrollTop = fromSaved;
-            }
+            const ratio = savedDonorsScrollRatio ?? (container._scrollSavedY != null && container._scrollSavedY >= 0 ? container._scrollSavedY / half : null);
+            viewport.scrollTop = (ratio != null && ratio >= 0 && ratio < 1) ? Math.min(ratio * half, half - 1) : 0;
             container._scrollSavedY = 0;
             savedDonorsScrollY = null;
+            savedDonorsScrollRatio = null;
             let lastTs = null;
             function tickTv(timestamp) {
                 if (lastTs === null) lastTs = timestamp;
@@ -1201,13 +1200,11 @@
             }
             donorsScrollHandle = requestAnimationFrame(tickTv);
         } else {
-            let currentY = 0;
-            const fromSaved = (container._scrollSavedY != null && container._scrollSavedY < 0) ? container._scrollSavedY : savedDonorsScrollY;
-            if (fromSaved != null && fromSaved < 0) {
-                currentY = Math.max(-half, Math.min(0, fromSaved));
-            }
+            const ratio = savedDonorsScrollRatio ?? (container._scrollSavedY != null && container._scrollSavedY < 0 ? -container._scrollSavedY / half : null);
+            let currentY = (ratio != null && ratio >= 0 && ratio <= 1) ? -ratio * half : 0;
             container._scrollSavedY = 0;
             savedDonorsScrollY = null;
+            savedDonorsScrollRatio = null;
             container.style.transform = 'translate3d(0,' + Math.round(currentY) + 'px,0)';
             let lastTs = null;
             function tick(timestamp) {
@@ -1229,18 +1226,21 @@
     function stopDonorsScroll() {
         const container = document.getElementById('liveDonorsScroll');
         const viewport = document.getElementById('liveDonorsScrollViewport');
-        if (document.body.classList.contains('tv-mode') && viewport) {
-            const st = viewport.scrollTop;
-            if (st >= 0 && st < container.scrollHeight / 2) {
-                container._scrollSavedY = st;
-                savedDonorsScrollY = st;
-            }
-        } else if (container && container.style.transform) {
-            const m = container.style.transform.match(/translate3d\(0,\s*(-?[\d.]+)px/);
-            if (m) {
-                const y = parseFloat(m[1]) || 0;
-                container._scrollSavedY = y;
-                savedDonorsScrollY = y;
+        const half = container ? container.scrollHeight / 2 : 0;
+        if (half > 0) {
+            if (document.body.classList.contains('tv-mode') && viewport) {
+                const st = viewport.scrollTop;
+                if (st >= 0 && st < half) {
+                    savedDonorsScrollRatio = st / half;
+                }
+            } else if (container && container.style.transform) {
+                const m = container.style.transform.match(/translate3d\(0,\s*(-?[\d.]+)px/);
+                if (m) {
+                    const y = parseFloat(m[1]) || 0;
+                    if (y <= 0 && y >= -half) {
+                        savedDonorsScrollRatio = -y / half;
+                    }
+                }
             }
         }
         if (donorsScrollHandle) {
