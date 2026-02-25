@@ -468,20 +468,8 @@
         }
         .switch input:checked + .switch-slider { background: var(--primary-gold); }
         .switch input:checked + .switch-slider::before { transform: translateX(22px); }
-        /* מצב טלוויזיה – רק אופטימיזציה לאנימציות (גלילה חלקה, ללא קפיצות ורעידות) */
-        body.tv-mode .leader-item, body.tv-mode .live-donor-card { transition: none; }
-        body.tv-mode .liveview-top-btn { transition: none; }
-        body.tv-mode .loading-spinner { animation: none; opacity: 0.8; }
-        body.tv-mode .live-leaders-scroll-inner,
-        body.tv-mode .live-donors-scroll { will-change: auto; }
-        body.tv-mode .live-leaders-scroll-inner[data-leaders-scroll] {
-            animation: leadersScrollUpTv var(--leaders-scroll-duration, 60s) linear infinite;
-            will-change: auto;
-        }
-        @keyframes leadersScrollUpTv {
-            0% { transform: translate3d(0, 0, 0); }
-            100% { transform: translate3d(0, calc(-1 * var(--leaders-scroll-distance, 500px)), 0); }
-        }
+        /* מצב טלוויזיה – זהה למחשב, רק ללא רווח בין מתרימים */
+        body.tv-mode .live-donors-scroll { gap: 0 !important; }
     </style>
 </head>
 <body>
@@ -545,7 +533,7 @@
                 <div class="liveview-setting-group">
                     <h4>כללי</h4>
                     <div class="liveview-setting-row">
-                        <label>מצב טלוויזיה (גלילה חלקה, ללא רעידות):</label>
+                        <label>מצב טלוויזיה (ללא רווח בין מתרימים):</label>
                         <label class="switch">
                             <input type="checkbox" id="lvTvModeEnabled">
                             <span class="switch-slider"></span>
@@ -1178,7 +1166,6 @@
                 const speedValue = Math.max(10, Math.min(100, liveViewSettings.donorsScrollSpeed || 50));
                 speed = 5 + (speedValue - 10) * 65 / 90;
             }
-            if (document.body.classList.contains('tv-mode')) speed = Math.max(20, speed * 0.6);
             currentY -= speed * delta / 1000;
             if (currentY <= -half) currentY += half;
             container.style.transform = 'translate3d(0,' + Math.round(currentY) + 'px,0)';
@@ -1226,7 +1213,7 @@
         const onIteration = () => { leadersScrollLastTime = performance.now(); };
         inner.removeEventListener('animationiteration', onIteration);
         inner.addEventListener('animationiteration', onIteration);
-        const speed = document.body.classList.contains('tv-mode') ? 15 : 30;
+        const speed = 30;
         const durationMs = Math.round((contentHeight / speed) * 1000);
         inner.style.setProperty('--leaders-scroll-distance', contentHeight + 'px');
         inner.style.setProperty('--leaders-scroll-duration', durationMs + 'ms');
