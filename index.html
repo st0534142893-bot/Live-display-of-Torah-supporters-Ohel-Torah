@@ -1107,13 +1107,13 @@
 
         const donorCardsHtml = htmlParts.join('');
         if (donorsScroll) {
-            if (!donorsScrollHandle) stopDonorsScroll();
+            stopDonorsScroll();
             donorsScroll.innerHTML = donorCardsHtml + donorCardsHtml;
             donorsScroll.style.gap = (liveViewSettings.donorGap || 10) + 'px';
         }
 
         if (liveViewSettings.enableAutoScroll && donorsScroll) {
-            if (!donorsScrollHandle) requestAnimationFrame(() => startDonorsScroll());
+            requestAnimationFrame(() => startDonorsScroll());
         }
         requestAnimationFrame(() => startLeadersScroll());
     }
@@ -1123,7 +1123,7 @@
         if (!container || donorsScrollHandle) return;
         const half = container.scrollHeight / 2;
         if (!half || !isFinite(half) || half < 100) return;
-        const speedValue = liveViewSettings.donorsScrollSpeed || 50;
+        const speedValue = Math.max(10, Math.min(100, liveViewSettings.donorsScrollSpeed || 50));
         const speed = 5 + (speedValue - 10) * 65 / 90;
         let currentY = 0;
         const fromSaved = (container._scrollSavedY != null && container._scrollSavedY < 0) ? container._scrollSavedY : savedDonorsScrollY;
@@ -1142,8 +1142,7 @@
             delta = Math.min(33, delta);
             lastTs = timestamp;
             currentY -= speed * delta / 1000;
-            const halfNow = container.scrollHeight / 2;
-            if (halfNow > 0 && currentY <= -halfNow) currentY += halfNow;
+            if (currentY <= -half) currentY += half;
             container.style.transform = 'translate3d(0,' + Math.round(currentY) + 'px,0)';
             donorsScrollLastTime = timestamp;
             donorsScrollHandle = requestAnimationFrame(tick);
