@@ -1096,25 +1096,37 @@
         const ind = document.getElementById('liveViewUpdateIndicator');
         if (ind) ind.classList.remove('show');
     }
+    let progressAnimationInterval = null;
     async function refresh() {
         const isPeriodicRefresh = hasLoadedOnce;
+        const ESTIMATED_DURATION_MS = 20000;
         try {
             if (isPeriodicRefresh) {
                 showUpdateIndicator('בדיקת סכום', 0);
-                const steps = [25, 50, 75];
-                let stepIdx = 0;
-                const stepInterval = setInterval(() => {
-                    if (stepIdx < steps.length) showUpdateIndicator('בדיקת סכום', steps[stepIdx++]);
-                    else clearInterval(stepInterval);
-                }, 400);
+                const startTime = Date.now();
+                progressAnimationInterval = setInterval(() => {
+                    const elapsed = Date.now() - startTime;
+                    const pct = Math.min(95, Math.round((elapsed / ESTIMATED_DURATION_MS) * 100));
+                    showUpdateIndicator('בדיקת סכום', pct);
+                }, 200);
             }
             await loadData();
-            if (isPeriodicRefresh) showUpdateIndicator('בדיקת סכום', 100);
+            if (isPeriodicRefresh) {
+                if (progressAnimationInterval) {
+                    clearInterval(progressAnimationInterval);
+                    progressAnimationInterval = null;
+                }
+                showUpdateIndicator('בדיקת סכום', 100);
+            }
             render();
             hasLoadedOnce = true;
             if (isPeriodicRefresh) setTimeout(hideUpdateIndicator, 800);
         } catch (e) {
             console.error(e);
+            if (progressAnimationInterval) {
+                clearInterval(progressAnimationInterval);
+                progressAnimationInterval = null;
+            }
             if (isPeriodicRefresh) hideUpdateIndicator();
             const overlay = document.getElementById('loadingOverlay');
             if (overlay) {
