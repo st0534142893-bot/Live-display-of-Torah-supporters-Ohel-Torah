@@ -658,6 +658,50 @@
         };
     }
 
+    /** השוואה גמישה של groupId – מטפלת בהבדלי טיפוס, scientific notation, "group1" מול 1 */
+    function groupIdsMatch(donorGroupId, groupId) {
+        const a = donorGroupId;
+        const b = groupId;
+        if (a == null && b == null) return true;
+        if (a === b) return true;
+        const sa = String(a ?? '').trim();
+        const sb = String(b ?? '').trim();
+        if (sa === sb) return true;
+        const na = parseFloat(sa);
+        const nb = parseFloat(sb);
+        if (!isNaN(na) && !isNaN(nb) && na === nb) return true;
+        const numFromGroupPref = (s) => { const m = /^group(\d+)$/i.exec(s); return m ? parseInt(m[1], 10) : NaN; };
+        const na2 = numFromGroupPref(sa);
+        const nb2 = numFromGroupPref(sb);
+        if (!isNaN(na2) && na2 === nb) return true;
+        if (!isNaN(nb2) && nb2 === na) return true;
+        if (!isNaN(na2) && !isNaN(nb2) && na2 === nb2) return true;
+        return false;
+    }
+
+    /** מחזיר את הקבוצה שמתרים שייך אליה – groupId גמיש + fallback לפי groupName */
+    function getGroupForDonor(donor) {
+        if (!donor || !Array.isArray(groups) || groups.length === 0) return null;
+        const byId = groups.find(g => groupIdsMatch(donor.groupId, g.id));
+        if (byId) return byId;
+        const dn = (donor.groupName || '').toString().trim();
+        if (!dn) return null;
+        const donorMatchesAnyByGroupId = groups.some(g => groupIdsMatch(donor.groupId, g.id));
+        if (donorMatchesAnyByGroupId) return null;
+        return groups.find(g => (g.name || '').toString().trim() === dn) || null;
+    }
+
+    /** נרמול groupId – מתאים מתרים לקבוצה הנכונה לפי groupId או groupName */
+    function normalizeDonorGroup(donor) {
+        if (!donor || !(donor.name || '').trim()) return donor;
+        const match = getGroupForDonor(donor);
+        if (match) {
+            donor.groupId = match.id;
+            donor.groupName = match.name || '';
+        }
+        return donor;
+    }
+
     async function fetchApi(url, params, opts = {}) {
         const u = (url || '').trim();
         if (!u) throw new Error('חסרה כתובת API');
@@ -716,8 +760,10 @@
                 displayName: d.displayName || d.name || '',
                 amount: parseInt(d.amount) || 0,
                 groupId: d.groupId,
+                groupName: (d.groupName || d.group || '').toString().trim(),
                 personalGoal: Math.max(0, Math.round(parseFloat(d.personalGoal) || parseFloat(d.goal) || DEFAULT_DONOR_GOAL))
             }));
+            donors = donors.map(normalizeDonorGroup).filter(Boolean);
         } else if ((updateType === 'all') && sheetDonors.length > 0 && sheetGroups.length > 0) {
             groups = sheetGroups;
             donors = sheetDonors.map(d => {
@@ -732,9 +778,11 @@
                     displayName: d.displayName || name,
                     amount,
                     groupId: d.groupId,
+                    groupName: (d.groupName || d.group || '').toString().trim(),
                     personalGoal: personalGoal || DEFAULT_DONOR_GOAL
                 };
             });
+            donors = donors.map(normalizeDonorGroup).filter(Boolean);
             const byName = new Map();
             recruiters.forEach(r => {
                 const name = (r.Name || r.name || '').trim();
@@ -810,7 +858,11 @@
     }
 
     function getDonorsForGroup(group) {
-        return donors.filter(d => d.groupId === group.id || (group.id && String(d.groupId) === String(group.id)));
+        if (!group) return [];
+        return donors.filter(d => {
+            const g = getGroupForDonor(d);
+            return g && groupIdsMatch(g.id, group.id);
+        });
     }
 
     function saveLeadersScrollState() {
@@ -986,7 +1038,8 @@
             if (donorsFilter === 'with-amount' && (d.amount || 0) <= 0) return false;
             return true;
         }).forEach(d => {
-            const gid = d.groupId != null && d.groupId !== '' ? String(d.groupId) : '_ungrouped';
+            const g = getGroupForDonor(d);
+            const gid = g ? String(g.id) : '_ungrouped';
             if (!donorsByGroup.has(gid)) donorsByGroup.set(gid, []);
             donorsByGroup.get(gid).push(d);
         });
@@ -996,7 +1049,7 @@
         let itemCounter = 0;
         const htmlParts = [];
         groupRenderOrder.forEach(groupId => {
-            let donorsInGroup = donorsByGroup.get(groupId) || [];
+            let donorsInGroup = donorsByGroup.get(String(groupId)) || donorsByGroup.get(groupId) || [];
             if (donorsInGroup.length === 0) return;
             const group = groups.find(g => String(g.id || '') === groupId);
             const groupName = group ? (group.name || '').toString().trim() || ('קבוצה ' + groupId) : (groupId === '_ungrouped' ? 'ללא קבוצה' : 'קבוצה ' + groupId);
