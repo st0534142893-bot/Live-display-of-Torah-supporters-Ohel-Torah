@@ -68,6 +68,7 @@
             font-weight: 700;
         }
         .leaders-list { display: flex; flex-direction: column; gap: 14px; }
+        .leaders-list.leaders-in-scroll { margin-bottom: 12px; }
         .leaders-targets-block { display: flex; flex-direction: column; gap: 0; padding-top: 0; }
         .leader-item {
             background: rgba(255,255,255,0.98);
@@ -554,6 +555,7 @@
                     <h4>גלילה</h4>
                     <div class="liveview-setting-row"><label>גלילה אוטומטית:</label><label class="switch"><input type="checkbox" id="lvEnableAutoScroll" checked><span class="switch-slider"></span></label></div>
                     <div class="liveview-setting-row"><label>מהירות גלילה:</label><input type="range" id="lvDonorsScrollSpeed" min="10" max="100" value="50"><span id="lvDonorsScrollSpeedVal">50</span></div>
+                    <div class="liveview-setting-row"><label>גלילה בעמודת מובילים:</label><select id="lvLeadersColumnScroll"><option value="groups">רק קבוצות (כרטיסיות יעדים)</option><option value="both">קבוצות + מובילים (5 הראשונים)</option></select></div>
                 </div>
                 <div class="liveview-setting-group">
                     <h4>סדר קבוצות</h4>
@@ -625,6 +627,7 @@
             groupsSortBy: 'name',
             donorsSortBy: 'name',
             donorsFilter: 'with-amount',
+            leadersColumnScroll: 'groups',
             ...liveViewSettings
         };
     }
@@ -859,8 +862,32 @@
         }).join('');
 
         const leadersTargetsBlock = document.getElementById('leadersTargetsBlock');
+        const leadersScrollMode = liveViewSettings.leadersColumnScroll || 'groups';
         if (leadersList) leadersList.innerHTML = leadersHtml;
         if (leadersTargetsBlock) leadersTargetsBlock.innerHTML = groupsCardsHtml + summaryCardHtml;
+        const primary = document.getElementById('leadersScrollPrimary');
+        const staticTop = document.getElementById('leadersStaticTop');
+        if (leadersList && primary && staticTop && !hideCards) {
+            if (leadersScrollMode === 'both') {
+                leadersList.classList.add('leaders-in-scroll');
+                if (leadersList.parentNode !== primary) {
+                    leadersList.remove();
+                    primary.insertBefore(leadersList, leadersTargetsBlock);
+                }
+            } else {
+                leadersList.classList.remove('leaders-in-scroll');
+                if (leadersList.parentNode !== staticTop) {
+                    leadersList.remove();
+                    staticTop.appendChild(leadersList);
+                }
+            }
+        } else if (leadersList && staticTop && (hideCards || leadersScrollMode === 'groups')) {
+            leadersList.classList.remove('leaders-in-scroll');
+            if (leadersList.parentNode !== staticTop) {
+                leadersList.remove();
+                staticTop.appendChild(leadersList);
+            }
+        }
 
         const donorsSortBy = 'name';
         const donorsFilter = liveViewSettings.donorsFilter || 'with-amount';
@@ -993,11 +1020,12 @@
         const clone = document.getElementById('leadersScrollClone');
         const targetsBlock = document.getElementById('leadersTargetsBlock');
         if (!inner || !primary || !clone || !targetsBlock) return;
-        const content = targetsBlock;
+        const scrollMode = liveViewSettings.leadersColumnScroll || 'groups';
+        const content = scrollMode === 'both' ? primary : targetsBlock;
         if (!content || !content.children.length) return;
         clone.innerHTML = content.outerHTML;
         clone.style.display = 'block';
-        const contentHeight = primary.offsetHeight;
+        const contentHeight = content.offsetHeight;
         if (!contentHeight || !isFinite(contentHeight) || contentHeight < 80) {
             leadersScrollIsRunning = false;
             return;
@@ -1172,6 +1200,7 @@
         setCheck('lvShowTotalBanner', s.showTotalBanner);
         setCheck('lvEnableAutoScroll', s.enableAutoScroll !== false);
         set('lvDonorsFilter', s.donorsFilter || 'with-amount');
+        set('lvLeadersColumnScroll', s.leadersColumnScroll || 'groups');
     }
     function bindSettingsInputs() {
         const range = (id, spanId, suffix) => {
@@ -1205,7 +1234,8 @@
             hideLeaderCards: !!document.getElementById('lvHideLeaderCards')?.checked,
             showTotalBanner: !!document.getElementById('lvShowTotalBanner')?.checked,
             enableAutoScroll: !!document.getElementById('lvEnableAutoScroll')?.checked,
-            donorsFilter: document.getElementById('lvDonorsFilter')?.value || 'with-amount'
+            donorsFilter: document.getElementById('lvDonorsFilter')?.value || 'with-amount',
+            leadersColumnScroll: document.getElementById('lvLeadersColumnScroll')?.value || 'groups'
         };
         try { localStorage.setItem('liveViewSettings', JSON.stringify(liveViewSettings)); } catch (e) {}
         render();
