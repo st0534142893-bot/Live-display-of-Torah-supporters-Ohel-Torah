@@ -102,7 +102,7 @@
             min-width: 42px;
             text-align: center;
         }
-        .leader-item.rank-1 .leader-rank { color: #FFD700; font-weight: 800; }
+        .leader-item.rank-1 .leader-rank { color: #8B6914; font-weight: 800; }
         .leader-item.rank-1 .leader-rank::after { content: '🥇'; font-size: 36px; margin-right: 6px; display: inline-block; }
         .leader-item.rank-2 .leader-rank { color: #C0C0C0; }
         .leader-item.rank-2 .leader-rank::after { content: '🥈'; font-size: 32px; margin-right: 6px; display: inline-block; }
@@ -114,8 +114,9 @@
         .leader-item.rank-5 .leader-rank::after { content: '5️⃣'; font-size: 28px; margin-right: 6px; display: inline-block; }
         .leader-info { flex: 1; margin: 0 12px; }
         .leader-name { font-size: 16px; font-weight: 600; color: var(--brown-dark); }
+        .leader-item.rank-1 .leader-name { color: #2d1f0f; font-weight: 700; }
         .leader-total { font-size: 18px; font-weight: 700; color: var(--primary-gold-dark); min-width: 10ch; }
-        .leader-item.rank-1 .leader-total { color: #FFD700; font-weight: 800; font-size: 20px; }
+        .leader-item.rank-1 .leader-total { color: #654321; font-weight: 800; font-size: 20px; }
         .leader-target-card {
             background: rgba(255,255,255,0.9);
             border: 2px solid var(--border);
@@ -565,6 +566,17 @@
                     <h4>עדכון אוטומטי</h4>
                     <div class="liveview-setting-row"><label>תדירות עדכון:</label><select id="lvUpdateInterval"><option value="1">כל דקה</option><option value="2">כל 2 דקות</option><option value="3">כל 3 דקות</option><option value="5">כל 5 דקות</option><option value="10">כל 10 דקות</option><option value="15">כל 15 דקות</option><option value="30">כל 30 דקות</option></select></div>
                     <div class="liveview-setting-row"><label>סוג העדכון:</label><select id="lvUpdateType"><option value="all">כל העדכונים (נדרים + גליון)</option><option value="nedarim">רק נדרים (סכום + מתרימים)</option><option value="sheet">רק גליון (קבוצות ומתרימים מהגליון)</option></select></div>
+                </div>
+                <div class="liveview-setting-group">
+                    <h4>קישורים</h4>
+                    <div class="liveview-setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+                        <button type="button" class="btn" onclick="window.open('https://drive.google.com/file/d/15tL2Z5rmlg5lbcLT0HK6REdML56_NOFN/view?usp=sharing','_blank')" style="width: 100%;">
+                            🎉 חגיגת ניצחון
+                        </button>
+                        <button type="button" class="btn" onclick="window.open('https://shlomo-yeshiva.github.io/Lottery-system/','_blank')" style="width: 100%;">
+                            🎲 מערכת הגרלות
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="liveview-settings-actions">
