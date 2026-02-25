@@ -468,24 +468,7 @@
         }
         .switch input:checked + .switch-slider { background: var(--primary-gold); }
         .switch input:checked + .switch-slider::before { transform: translateX(22px); }
-        /* מצב טלוויזיה – לפי https://julian.org.il/איך-בונים-אתר-שיראה-טוב-גם-בטלוויזיה-חכ/ */
-        /* טיפוגרפיה: לפחות 24px לטקסט, 36px לכותרות. הפחתת אנימציות מורכבות (רעידות במסכי טלוויזיה). */
-        body.tv-mode { font-size: 24px; }
-        body.tv-mode .leaders-title, body.tv-mode .group-header-title { font-size: 36px !important; }
-        body.tv-mode .leader-name { font-size: 26px !important; }
-        body.tv-mode .leader-total { font-size: 28px !important; }
-        body.tv-mode .leader-rank { font-size: 22px !important; }
-        body.tv-mode .live-donor-name { font-size: calc(var(--lv-donor-name-size, 18px) * 1.4) !important; }
-        body.tv-mode .live-donor-amount { font-size: calc(var(--lv-amount-size, 16px) * 1.4) !important; }
-        body.tv-mode .live-donor-card { padding: 22px 26px; min-height: 140px; }
-        body.tv-mode .live-donor-group-header { padding: 26px 30px; }
-        body.tv-mode .liveview-top-btn { width: 56px; height: 56px; min-width: 56px; min-height: 56px; }
-        body.tv-mode .live-total-banner { padding: 18px 36px; font-size: 26px; }
-        body.tv-mode .liveview-settings-modal h3 { font-size: 30px !important; }
-        body.tv-mode .liveview-setting-group h4 { font-size: 22px !important; }
-        body.tv-mode .liveview-setting-row > label:first-child { font-size: 20px; }
-        body.tv-mode .btn { padding: 18px 36px; font-size: 20px; min-height: 52px; }
-        /* הפחתת אנימציות – דפדפני טלוויזיה לא תמיד תומכים באנימציות מורכבות */
+        /* מצב טלוויזיה – רק אופטימיזציה לאנימציות (גלילה חלקה, ללא קפיצות ורעידות) */
         body.tv-mode .leader-item, body.tv-mode .live-donor-card { transition: none; }
         body.tv-mode .liveview-top-btn { transition: none; }
         body.tv-mode .loading-spinner { animation: none; opacity: 0.8; }
@@ -562,7 +545,7 @@
                 <div class="liveview-setting-group">
                     <h4>כללי</h4>
                     <div class="liveview-setting-row">
-                        <label>מצב טלוויזיה (גופנים גדולים, פחות אנימציות):</label>
+                        <label>מצב טלוויזיה (גלילה חלקה, ללא רעידות):</label>
                         <label class="switch">
                             <input type="checkbox" id="lvTvModeEnabled">
                             <span class="switch-slider"></span>
