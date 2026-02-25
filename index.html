@@ -68,7 +68,7 @@
             font-weight: 700;
         }
         .leaders-list { display: flex; flex-direction: column; gap: 14px; }
-        .leaders-targets-block { display: flex; flex-direction: column; gap: 14px; padding-top: 8px; }
+        .leaders-targets-block { display: flex; flex-direction: column; gap: 0; padding-top: 0; }
         .leader-item {
             background: rgba(255,255,255,0.98);
             border-radius: 12px;
@@ -120,7 +120,7 @@
             border: 2px solid var(--border);
             border-radius: 12px;
             padding: 18px;
-            margin: 8px 0;
+            margin: 0;
             display: flex;
             flex-direction: column;
             gap: 10px;
@@ -384,6 +384,15 @@
             box-shadow: 0 9px 28px rgba(212, 175, 55, 0.45);
         }
         .liveview-top-btn.active { background: var(--primary-gold); color: white; }
+        .liveview-top-btn.buttons-hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(-10px);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+        .liveview-top-btn:not(.buttons-hidden) {
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
         /* פאנל הגדרות */
         .liveview-settings-overlay {
             display: none;
@@ -539,6 +548,7 @@
                     <div class="liveview-setting-row"><label>הסתר 5 כרטיסיות מובילים:</label><label class="switch"><input type="checkbox" id="lvHideLeaderCards"><span class="switch-slider"></span></label></div>
                     <div class="liveview-setting-row"><label>הסתר עמודת מובילים:</label><label class="switch"><input type="checkbox" id="lvHideLeadersColumn"><span class="switch-slider"></span></label></div>
                     <div class="liveview-setting-row"><label>פס סיכום כשמובילים מוסתרים:</label><label class="switch"><input type="checkbox" id="lvShowTotalBanner"><span class="switch-slider"></span></label></div>
+                    <div class="liveview-setting-row"><label>הצג ברשימת מתרימים:</label><select id="lvDonorsFilter"><option value="with-amount">רק מי שאסף (הסתר מי שלא אסף כלל)</option><option value="all">כל המתרימים</option></select></div>
                 </div>
                 <div class="liveview-setting-group">
                     <h4>גלילה</h4>
@@ -573,6 +583,8 @@
     let leadersScrollIsRunning = false;
     let leadersScrollLastTime = 0;
     let hasLoadedOnce = false;
+    let buttonsHideTimer = null;
+    const BUTTONS_HIDE_DELAY_MS = 3000;
 
     function getUrlParam(name) {
         const params = new URLSearchParams(location.search);
@@ -612,6 +624,7 @@
             donorsScrollSpeed: 50,
             groupsSortBy: 'name',
             donorsSortBy: 'name',
+            donorsFilter: 'with-amount',
             ...liveViewSettings
         };
     }
@@ -850,8 +863,13 @@
         if (leadersTargetsBlock) leadersTargetsBlock.innerHTML = groupsCardsHtml + summaryCardHtml;
 
         const donorsSortBy = 'name';
+        const donorsFilter = liveViewSettings.donorsFilter || 'with-amount';
         const donorsByGroup = new Map();
-        donors.filter(d => (d.name || '').trim()).forEach(d => {
+        donors.filter(d => {
+            if (!(d.name || '').trim()) return false;
+            if (donorsFilter === 'with-amount' && (d.amount || 0) <= 0) return false;
+            return true;
+        }).forEach(d => {
             const gid = d.groupId != null && d.groupId !== '' ? String(d.groupId) : '_ungrouped';
             if (!donorsByGroup.has(gid)) donorsByGroup.set(gid, []);
             donorsByGroup.get(gid).push(d);
@@ -862,9 +880,10 @@
         let itemCounter = 0;
         const htmlParts = [];
         groupRenderOrder.forEach(groupId => {
+            let donorsInGroup = donorsByGroup.get(groupId) || [];
+            if (donorsInGroup.length === 0) return;
             const group = groups.find(g => String(g.id || '') === groupId);
             const groupName = group ? (group.name || '').toString().trim() || ('קבוצה ' + groupId) : (groupId === '_ungrouped' ? 'ללא קבוצה' : 'קבוצה ' + groupId);
-            let donorsInGroup = donorsByGroup.get(groupId) || [];
             if (donorsSortBy === 'name') donorsInGroup = [...donorsInGroup].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'he'));
             else if (donorsSortBy === 'amount') donorsInGroup = [...donorsInGroup].sort((a, b) => (b.amount || 0) - (a.amount || 0));
             else if (donorsSortBy === 'percentage') donorsInGroup = [...donorsInGroup].sort((a, b) => {
@@ -1090,6 +1109,25 @@
     document.addEventListener('webkitfullscreenchange', updateFullscreenButtonState);
     document.addEventListener('mozfullscreenchange', updateFullscreenButtonState);
 
+    function showTopButtons() {
+        document.querySelectorAll('.liveview-top-btn').forEach(btn => btn.classList.remove('buttons-hidden'));
+        if (buttonsHideTimer) clearTimeout(buttonsHideTimer);
+        buttonsHideTimer = setTimeout(() => {
+            document.querySelectorAll('.liveview-top-btn').forEach(btn => btn.classList.add('buttons-hidden'));
+            buttonsHideTimer = null;
+        }, BUTTONS_HIDE_DELAY_MS);
+    }
+    function hideTopButtons() {
+        document.querySelectorAll('.liveview-top-btn').forEach(btn => btn.classList.add('buttons-hidden'));
+        if (buttonsHideTimer) { clearTimeout(buttonsHideTimer); buttonsHideTimer = null; }
+    }
+    function initButtonsAutoHide() {
+        showTopButtons();
+        document.addEventListener('mousemove', showTopButtons);
+        document.addEventListener('mousedown', showTopButtons);
+        document.addEventListener('touchstart', showTopButtons);
+    }
+
     function openLiveViewSettings() {
         const overlay = document.getElementById('liveviewSettingsOverlay');
         if (!overlay) return;
@@ -1133,6 +1171,7 @@
         setCheck('lvHideLeadersColumn', s.hideLeadersColumn);
         setCheck('lvShowTotalBanner', s.showTotalBanner);
         setCheck('lvEnableAutoScroll', s.enableAutoScroll !== false);
+        set('lvDonorsFilter', s.donorsFilter || 'with-amount');
     }
     function bindSettingsInputs() {
         const range = (id, spanId, suffix) => {
@@ -1165,7 +1204,8 @@
             hideLeadersColumn: !!document.getElementById('lvHideLeadersColumn')?.checked,
             hideLeaderCards: !!document.getElementById('lvHideLeaderCards')?.checked,
             showTotalBanner: !!document.getElementById('lvShowTotalBanner')?.checked,
-            enableAutoScroll: !!document.getElementById('lvEnableAutoScroll')?.checked
+            enableAutoScroll: !!document.getElementById('lvEnableAutoScroll')?.checked,
+            donorsFilter: document.getElementById('lvDonorsFilter')?.value || 'with-amount'
         };
         try { localStorage.setItem('liveViewSettings', JSON.stringify(liveViewSettings)); } catch (e) {}
         render();
@@ -1183,6 +1223,7 @@
             if (overlay) overlay.classList.add('hidden');
             refreshInterval = setInterval(refresh, 5 * 60 * 1000);
             setInterval(scrollWatchdog, 2000);
+            initButtonsAutoHide();
         } catch (e) {
             if (overlay) overlay.innerHTML = '<div class="error-msg">' + (e.message || e) + '</div>';
         }
