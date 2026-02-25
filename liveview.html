@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>תצוגת לייב – נדרים פלוס</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary-gold: #D4AF37;
+            --primary-gold-dark: #B8941F;
+            --cream: #F5E6D3;
+            --cream-light: #FFF8DC;
+            --cream-dark: #E8D5B7;
+            --brown-dark: #3d2f1f;
+            --muted: #8B6F47;
+            --border: rgba(212, 175, 55, 0.3);
+        }
+        body {
+            font-family: 'Segoe UI', 'David', 'Arial Hebrew', sans-serif;
+            background: linear-gradient(135deg, var(--cream) 0%, var(--cream-light) 100%);
+            color: var(--brown-dark);
+            direction: rtl;
+            overflow: hidden;
+            height: 100vh;
+        }
+        .live-view-section {
+            background: linear-gradient(135deg, rgba(245, 230, 211, 0.9) 0%, rgba(255, 248, 220, 0.9) 100%);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100%;
+        }
+        .live-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+            position: relative;
+            z-index: 1;
+        }
+        .live-leaders-sidebar {
+            flex: 0 0 25% !important;
+            width: 25% !important;
+            min-width: 200px;
+            padding: 16px 18px;
+            display: flex;
+            flex-direction: column;
+            overflow: visible;
+            position: relative;
+            background: transparent !important;
+        }
+        .live-leaders-backing {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 0;
+            border-radius: 16px;
+            margin: 8px;
+            background: linear-gradient(135deg, rgba(245,230,211,0.95) 0%, rgba(255,248,220,0.95) 100%);
+        }
+        .live-leaders-scroll-wrapper { flex: 1; overflow: hidden; position: relative; z-index: 10; height: 100%; min-height: 0; display: flex; flex-direction: column; }
+        .leaders-static-top { flex-shrink: 0; }
+        .leaders-scroll-area { flex: 1; overflow: hidden; min-height: 0; }
+        .leaders-title {
+            font-size: 32px;
+            color: var(--brown-dark);
+            margin-bottom: 18px;
+            text-align: center;
+            font-weight: 700;
+        }
+        .leaders-list { display: flex; flex-direction: column; gap: 14px; }
+        .leaders-targets-block { display: flex; flex-direction: column; gap: 14px; padding-top: 8px; }
+        .leader-item {
+            background: rgba(255,255,255,0.98);
+            border-radius: 12px;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+        .leader-item.rank-1 {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.25) 0%, rgba(255, 248, 180, 0.9) 50%, rgba(255, 255, 240, 0.95) 100%);
+            padding: 16px 20px;
+        }
+        .leader-item.rank-2 {
+            background: linear-gradient(135deg, rgba(192, 192, 192, 0.2) 0%, rgba(230, 230, 230, 0.9) 50%, rgba(250, 250, 250, 0.95) 100%);
+        }
+        .leader-item.rank-3 {
+            background: linear-gradient(135deg, rgba(205, 127, 50, 0.2) 0%, rgba(255, 220, 180, 0.9) 50%, rgba(255, 245, 230, 0.95) 100%);
+        }
+        .leader-item.rank-4 {
+            background: linear-gradient(135deg, rgba(184, 134, 11, 0.18) 0%, rgba(255, 240, 200, 0.9) 50%, rgba(255, 250, 235, 0.95) 100%);
+        }
+        .leader-item.rank-5 {
+            background: linear-gradient(135deg, rgba(139, 69, 19, 0.18) 0%, rgba(255, 230, 200, 0.9) 50%, rgba(255, 245, 230, 0.95) 100%);
+        }
+        .leader-rank {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--primary-gold-dark);
+            min-width: 42px;
+            text-align: center;
+        }
+        .leader-item.rank-1 .leader-rank { color: #FFD700; font-weight: 800; }
+        .leader-item.rank-1 .leader-rank::after { content: '🥇'; font-size: 36px; margin-right: 6px; display: inline-block; }
+        .leader-item.rank-2 .leader-rank { color: #C0C0C0; }
+        .leader-item.rank-2 .leader-rank::after { content: '🥈'; font-size: 32px; margin-right: 6px; display: inline-block; }
+        .leader-item.rank-3 .leader-rank { color: #CD7F32; }
+        .leader-item.rank-3 .leader-rank::after { content: '🥉'; font-size: 32px; margin-right: 6px; display: inline-block; }
+        .leader-item.rank-4 .leader-rank { color: #8B6914; }
+        .leader-item.rank-4 .leader-rank::after { content: '4️⃣'; font-size: 28px; margin-right: 6px; display: inline-block; }
+        .leader-item.rank-5 .leader-rank { color: #654321; }
+        .leader-item.rank-5 .leader-rank::after { content: '5️⃣'; font-size: 28px; margin-right: 6px; display: inline-block; }
+        .leader-info { flex: 1; margin: 0 12px; }
+        .leader-name { font-size: 16px; font-weight: 600; color: var(--brown-dark); }
+        .leader-total { font-size: 18px; font-weight: 700; color: var(--primary-gold-dark); min-width: 10ch; }
+        .leader-item.rank-1 .leader-total { color: #FFD700; font-weight: 800; font-size: 20px; }
+        .leader-target-card {
+            background: rgba(255,255,255,0.9);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+            margin: 8px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .leader-target-title { font-size: 18px; font-weight: 600; color: var(--brown-dark); text-align: right; }
+        .leader-target-meta { font-size: 12px; color: var(--muted); text-align: right; }
+        .leader-target-progress-bar {
+            position: relative;
+            width: 100%;
+            height: 26px;
+            background: #ededed;
+            border-radius: 14px;
+            overflow: hidden;
+        }
+        .leader-target-progress-fill {
+            position: absolute;
+            top: 0; right: 0; bottom: 0;
+            background: linear-gradient(90deg, #b9f6ab, #7fe76a);
+            border-radius: 14px;
+            transition: width 0.6s ease;
+        }
+        .leader-target-progress-text {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 500;
+            color: #1f2d0a;
+            direction: rtl;
+        }
+        .live-donors-area {
+            flex: 1 1 75%;
+            min-width: 0;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        .live-donors-container {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: relative;
+            background: url("https://i.postimg.cc/PqpcB8WP/rq'-khh-lmsk.jpg") center/cover no-repeat;
+        }
+        .live-donors-scroll {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            padding: 10px;
+            will-change: transform;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            transform: translateZ(0);
+        }
+        .live-donor-group-header {
+            flex-basis: 100%;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.92);
+            border: 3px solid var(--primary-gold);
+            border-radius: 18px;
+            padding: 18px 22px;
+            box-shadow: 0 12px 30px rgba(212, 175, 55, 0.35);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .group-header-title {
+            text-align: center;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--brown-dark);
+        }
+        .group-header-progress-container { display: flex; flex-direction: column; gap: 8px; }
+        .group-header-progress-bar {
+            width: 100%;
+            height: 24px;
+            background: rgba(0, 0, 0, 0.08);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .group-header-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50 0%, #45a049 100%);
+            border-radius: 12px;
+            transition: width 0.6s ease;
+        }
+        .group-header-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--brown-dark);
+        }
+        .group-header-percentage { color: #4CAF50; font-weight: 700; font-size: 18px; }
+        .group-header-amounts { color: var(--brown-dark); font-variant-numeric: tabular-nums; }
+        .live-donor-card {
+            flex: 0 0 calc((100% - 20px) / 3);
+            background: rgba(255, 255, 255, 0.92);
+            border: 3px solid var(--primary-gold);
+            border-radius: 18px;
+            padding: 14px 18px;
+            box-shadow: 0 12px 30px rgba(212, 175, 55, 0.35);
+            min-height: 110px;
+            display: flex;
+            flex-direction: row-reverse;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 18px;
+            min-width: 0;
+        }
+        .live-donor-progress-circle-wrapper {
+            width: 80px;
+            height: 80px;
+            flex-shrink: 0;
+            margin-left: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .live-donor-progress-circle { width: 100%; height: 100%; position: relative; }
+        .live-donor-progress-circle svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+        .live-donor-progress-bg { fill: none; stroke: rgba(212, 175, 55, 0.2); stroke-width: 6; }
+        .live-donor-progress-fill { fill: none; stroke-width: 6; stroke-linecap: round; }
+        .live-donor-percentage {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--brown-dark);
+        }
+        .live-donor-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            align-items: flex-start;
+            text-align: left;
+        }
+        .live-donor-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--brown-dark);
+            margin: 0;
+            line-height: 1.3;
+        }
+        .live-donor-group { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0; }
+        .live-donor-amount { font-size: 14px; font-weight: 600; color: var(--brown-dark); }
+        .amount-value, .goal-value { font-variant-numeric: tabular-nums; }
+        .live-total-banner {
+            display: none;
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, var(--primary-gold), var(--primary-gold-dark));
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 700;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        .live-total-banner.active { display: flex; align-items: center; gap: 12px; }
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        .loading-overlay.hidden { display: none; }
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(212,175,55,0.3);
+            border-top-color: var(--primary-gold);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .error-msg { color: #c00; padding: 20px; text-align: center; }
+        /* גלילת מובילים – כמו בתוכנה הראשית */
+        .live-leaders-scroll-inner { will-change: transform; display: flex; flex-direction: column; gap: 0; }
+        .live-leaders-scroll { padding-bottom: 10px; flex-shrink: 0; display: flex; flex-direction: column; gap: 0; }
+        .live-leaders-scroll-clone { padding-bottom: 10px; flex-shrink: 0; display: flex; flex-direction: column; gap: 0; }
+        .live-leaders-scroll-inner[data-leaders-scroll] {
+            animation: leadersScrollUp var(--leaders-scroll-duration, 60s) linear infinite;
+            will-change: transform;
+            backface-visibility: hidden;
+        }
+        @keyframes leadersScrollUp {
+            0% { transform: translate3d(0, 0, 0); }
+            100% { transform: translate3d(0, calc(-1 * var(--leaders-scroll-distance, 500px)), 0); }
+        }
+        /* סימון עדכון – מוצג בזמן רענון נתונים */
+        .live-view-update-indicator {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 502;
+            padding: 10px 24px 14px;
+            background: linear-gradient(135deg, rgba(255, 248, 220, 0.98) 0%, rgba(245, 230, 211, 0.98) 100%);
+            border-top: 2px solid var(--primary-gold);
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.12);
+            direction: rtl;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 6px;
+        }
+        .live-view-update-indicator.show { display: flex !important; }
+        .live-view-update-indicator .update-indicator-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            width: 100%;
+        }
+        .live-view-update-indicator .update-indicator-title { font-size: 15px; font-weight: 600; color: var(--brown-dark); }
+        .live-view-update-indicator .update-indicator-percent { font-size: 18px; font-weight: 700; color: var(--primary-gold-dark); min-width: 44px; }
+        .live-view-update-indicator .update-indicator-bar { flex: 1; min-width: 120px; height: 8px; background: rgba(0,0,0,0.12); border-radius: 4px; overflow: hidden; }
+        .live-view-update-indicator .update-indicator-fill { height: 100%; background: linear-gradient(90deg, var(--primary-gold), var(--primary-gold-dark)); border-radius: 4px; transition: width 0.3s ease; }
+        .live-view-update-indicator .update-indicator-warning { font-size: 12px; color: #856404; margin-top: 2px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <p style="margin-top: 16px;">טוען נתונים מנדרים פלוס...</p>
+    </div>
+    <section class="live-view-section" id="liveViewSection">
+        <div class="live-total-banner" id="liveTotalBanner">
+            <span id="liveTotalBannerAmount"></span>
+            <span id="liveTotalBannerPercent" style="display:none;"></span>
+        </div>
+        <div class="live-view-update-indicator" id="liveViewUpdateIndicator">
+            <div class="update-indicator-row">
+                <span class="update-indicator-title" id="updateIndicatorTitle">בדיקת סכום</span>
+                <span class="update-indicator-percent" id="updateIndicatorPercent">0%</span>
+                <div class="update-indicator-bar"><div class="update-indicator-fill" id="updateIndicatorFill" style="width: 0%;"></div></div>
+            </div>
+            <div class="update-indicator-warning">לא מועדכנים בזמן העידכון</div>
+        </div>
+        <div class="live-content">
+            <div class="live-leaders-sidebar" id="leadersSidebar">
+                <div class="live-leaders-backing" id="liveLeadersBacking"></div>
+                <div class="live-leaders-scroll-wrapper" id="leadersScrollWrapper">
+                    <div class="leaders-static-top" id="leadersStaticTop">
+                        <h2 class="leaders-title" id="leadersTitle">מובילים</h2>
+                        <div class="leaders-list leaders-list-top5" id="leadersList"></div>
+                    </div>
+                    <div class="leaders-scroll-area" id="leadersScrollArea">
+                        <div class="live-leaders-scroll-inner" id="leadersScrollInner">
+                            <div class="live-leaders-scroll" id="leadersScrollPrimary">
+                                <div class="leaders-targets-block" id="leadersTargetsBlock"></div>
+                            </div>
+                            <div class="live-leaders-scroll live-leaders-scroll-clone" id="leadersScrollClone"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="live-donors-area">
+                <div class="live-donors-container">
+                    <div class="live-donors-scroll" id="liveDonorsScroll"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <script>
+(function() {
+    const DEFAULT_SHEET_URL = 'https://script.google.com/macros/s/AKfycbxPfLGvFIajSj_gHV9hUgTUon4SrnqvgkvpqX_EybRGCNhMGNCEsnWKgDqfjOWkWJnl/exec';
+    const DEFAULT_DONOR_GOAL = 2100;
+
+    let donors = [];
+    let groups = [];
+    let totalDonated = 0;
+    let goal = 0;
+    let liveViewSettings = {};
+    let sheetUrl = '';
+    let refreshInterval = null;
+    let donorsScrollHandle = null;
+    let donorsScrollLastTime = 0;
+    let leadersScrollIsRunning = false;
+    let leadersScrollLastTime = 0;
+    let hasLoadedOnce = false;
+
+    function getUrlParam(name) {
+        const params = new URLSearchParams(location.search);
+        return params.get(name) || '';
+    }
+
+    function loadSettings() {
+        const settingsParam = getUrlParam('settings');
+        if (settingsParam) {
+            try {
+                liveViewSettings = JSON.parse(decodeURIComponent(settingsParam));
+            } catch (e) {}
+        }
+        if (Object.keys(liveViewSettings).length === 0 && typeof localStorage !== 'undefined') {
+            try {
+                const saved = localStorage.getItem('liveViewSettings');
+                if (saved) liveViewSettings = JSON.parse(saved);
+            } catch (e) {}
+        }
+        sheetUrl = getUrlParam('sheetUrl') || (typeof localStorage !== 'undefined' ? localStorage.getItem('googleSheetsWebAppUrl') : '') || DEFAULT_SHEET_URL;
+        liveViewSettings = {
+            bgColor: '#f5e6d3',
+            bgColor2: '#fff8dc',
+            titleSize: 32,
+            donorNameSize: 18,
+            amountSize: 16,
+            groupNameSize: 28,
+            donorGroupSize: 13,
+            hideLeadersColumn: false,
+            hideLeaderCards: false,
+            showTotalBanner: false,
+            leadersWidth: 25,
+            donorsWidth: 75,
+            leadersGap: 14,
+            donorGap: 10,
+            enableAutoScroll: true,
+            donorsScrollSpeed: 50,
+            groupsSortBy: 'name',
+            donorsSortBy: 'name',
+            ...liveViewSettings
+        };
+    }
+
+    async function fetchApi(url, params, opts = {}) {
+        const u = (url || '').trim();
+        if (!u) throw new Error('חסרה כתובת API');
+        const qs = new URLSearchParams(params).toString();
+        const fullUrl = u + (u.includes('?') ? '&' : '?') + qs;
+        const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timeout = opts.timeout || 30000;
+        if (ctrl) setTimeout(() => ctrl.abort(), timeout);
+        const res = await fetch(fullUrl, { method: 'GET', redirect: 'follow', signal: ctrl ? ctrl.signal : undefined });
+        const text = await res.text();
+        if (!res.ok) throw new Error('שגיאת שרת: ' + res.status);
+        return JSON.parse(text || '{}');
+    }
+
+    async function loadData() {
+        const url = sheetUrl;
+        if (!url) throw new Error('נא להגדיר כתובת Web App. פתח את הקובץ הראשי והגדר בהגדרות סנכרון.');
+
+        const [totalRes, recruitersRes, sheetRes] = await Promise.all([
+            fetchApi(url, { action: 'getNedarimTotal', light: '1', _: Date.now() }, { timeout: 45000 }).catch(() => ({ success: false })),
+            fetchApi(url, { action: 'getAllNedarimRecruiters', light: '1', _: Date.now() }, { timeout: 60000 }).catch(() => ({ success: false })),
+            fetchApi(url, { action: 'getAll', _: Date.now() }, { timeout: 25000 }).catch(() => ({ success: false }))
+        ]);
+
+        if (totalRes.success && totalRes.totalDonated !== undefined) {
+            totalDonated = parseInt(totalRes.totalDonated) || 0;
+            goal = parseInt(totalRes.goal) || 0;
+        }
+
+        const recruiters = (recruitersRes.recruiters || (Array.isArray(recruitersRes) ? recruitersRes : [])) || [];
+        const sheetDonors = (sheetRes.donors || []);
+        const sheetGroups = (sheetRes.groups || []);
+
+        const recruiterMap = new Map();
+        recruiters.forEach(r => {
+            const id = r.Id || r.MatrimId || r.id || r.MatrimNumber;
+            const amount = parseInt(r.Cumule) || parseInt(r.Amount) || 0;
+            const name = (r.Name || r.name || '').trim();
+            if (id != null && name) recruiterMap.set(String(id), { name, amount });
+        });
+
+        if (sheetDonors.length > 0 && sheetGroups.length > 0) {
+            groups = sheetGroups;
+            donors = sheetDonors.map(d => {
+                const matrimId = d.nedarimMatrimId ? String(d.nedarimMatrimId).trim() : null;
+                const rec = matrimId && recruiterMap.has(matrimId) ? recruiterMap.get(matrimId) : null;
+                const amount = rec ? rec.amount : (parseInt(d.amount) || 0);
+                const name = (d.displayName || d.name || '').trim() || (rec ? rec.name : '');
+                const personalGoal = Math.max(0, Math.round(parseFloat(d.personalGoal) || parseFloat(d.goal) || DEFAULT_DONOR_GOAL));
+                return {
+                    id: d.id,
+                    name,
+                    displayName: d.displayName || name,
+                    amount,
+                    groupId: d.groupId,
+                    personalGoal: personalGoal || DEFAULT_DONOR_GOAL
+                };
+            });
+            const byName = new Map();
+            recruiters.forEach(r => {
+                const name = (r.Name || r.name || '').trim();
+                const amount = parseInt(r.Cumule) || parseInt(r.Amount) || 0;
+                if (name && !byName.has(name)) byName.set(name, amount);
+            });
+            donors.forEach(d => {
+                if (d.amount === 0 && d.name) {
+                    const amt = byName.get(d.name);
+                    if (amt != null) d.amount = amt;
+                }
+            });
+        } else {
+            groups = [];
+            donors = recruiters.map((r, i) => ({
+                id: 'r' + i,
+                name: (r.Name || r.name || '').trim(),
+                displayName: (r.Name || r.name || '').trim(),
+                amount: parseInt(r.Cumule) || parseInt(r.Amount) || 0,
+                groupId: null,
+                personalGoal: DEFAULT_DONOR_GOAL
+            })).filter(d => d.name);
+        }
+
+        if (totalDonated === 0 && donors.length > 0) {
+            totalDonated = donors.reduce((s, d) => s + (d.amount || 0), 0);
+        }
+    }
+
+    function escapeHtml(s) {
+        if (!s) return '';
+        const div = document.createElement('div');
+        div.textContent = s;
+        return div.innerHTML;
+    }
+
+    function getProgressColor(percentage) {
+        const percent = Math.max(0, percentage || 0);
+        if (percent >= 140) return '#1aff6c';
+        if (percent === 100 || percent > 100) return '#1abc3f';
+        if (percent >= 85) return '#3ed45b';
+        if (percent >= 70) return '#7de680';
+        if (percent >= 50) return '#ffb347';
+        if (percent >= 30) return '#ff8a33';
+        if (percent >= 10) return '#ff5a3c';
+        if (percent > 0) return '#d62828';
+        return '#b91c1c';
+    }
+
+    function createProgressCircle(percentage, uniqueId, originalPercentage) {
+        const size = 80;
+        const strokeWidth = 6;
+        const radius = (size - strokeWidth) / 2;
+        const circumference = 2 * Math.PI * radius;
+        const displayPercentage = Math.min(percentage, 100);
+        const offset = circumference - (displayPercentage / 100) * circumference;
+        const percentForColor = originalPercentage !== undefined ? originalPercentage : percentage;
+        const strokeColor = getProgressColor(percentForColor);
+        return `
+            <div class="live-donor-progress-circle">
+                <svg width="100%" height="100%" viewBox="0 0 ${size} ${size}" preserveAspectRatio="xMidYMid meet">
+                    <circle class="live-donor-progress-bg" cx="${size/2}" cy="${size/2}" r="${radius}"></circle>
+                    <circle class="live-donor-progress-fill"
+                            cx="${size/2}" cy="${size/2}" r="${radius}"
+                            stroke="${strokeColor}"
+                            stroke-dasharray="${circumference}"
+                            stroke-dashoffset="${offset}"
+                            data-circumference="${circumference}"></circle>
+                </svg>
+                <div class="live-donor-percentage">${Math.round(percentForColor)}%</div>
+            </div>
+        `;
+    }
+
+    function getDonorsForGroup(group) {
+        return donors.filter(d => d.groupId === group.id || (group.id && String(d.groupId) === String(group.id)));
+    }
+
+    function render() {
+        const leadersList = document.getElementById('leadersList');
+        const donorsScroll = document.getElementById('liveDonorsScroll');
+        const leadersSidebar = document.getElementById('leadersSidebar');
+        const leadersTitle = document.getElementById('leadersTitle');
+        const banner = document.getElementById('liveTotalBanner');
+        const bannerAmount = document.getElementById('liveTotalBannerAmount');
+        const bannerPercent = document.getElementById('liveTotalBannerPercent');
+
+        const hideCol = liveViewSettings.hideLeadersColumn;
+        const hideCards = liveViewSettings.hideLeaderCards;
+        const showBanner = liveViewSettings.showTotalBanner && hideCol;
+
+        if (leadersSidebar) {
+            leadersSidebar.style.display = hideCol ? 'none' : 'flex';
+            leadersSidebar.style.width = hideCol ? '0%' : (liveViewSettings.leadersWidth || 25) + '%';
+        }
+        const leadersStaticTop = document.getElementById('leadersStaticTop');
+        if (leadersTitle) leadersTitle.style.display = hideCards ? 'none' : 'block';
+        if (leadersStaticTop) leadersStaticTop.style.display = hideCards ? 'none' : 'block';
+        if (banner) {
+            banner.classList.toggle('active', showBanner);
+            if (showBanner && bannerAmount) bannerAmount.textContent = '₪' + totalDonated.toLocaleString();
+            if (showBanner && bannerPercent && goal > 0) {
+                const pct = (totalDonated / goal * 100).toFixed(1);
+                bannerPercent.textContent = pct + '%';
+                bannerPercent.style.display = '';
+            }
+        }
+
+        document.body.style.background = `linear-gradient(135deg, ${liveViewSettings.bgColor || '#f5e6d3'} 0%, ${liveViewSettings.bgColor2 || '#fff8dc'} 100%)`;
+        const backing = document.getElementById('liveLeadersBacking');
+        if (backing) backing.style.background = `linear-gradient(135deg, ${liveViewSettings.bgColor || '#f5e6d3'} 0%, ${liveViewSettings.bgColor2 || '#fff8dc'} 100%)`;
+
+        const sortedDonors = [...donors].filter(d => (d.name || '').trim() && (d.amount || 0) > 0).sort((a, b) => (b.amount || 0) - (a.amount || 0));
+        const top5 = sortedDonors.slice(0, 5);
+        const pct = goal > 0 ? Math.min(100, (totalDonated / goal) * 100) : 0;
+        const pctText = goal > 0 ? (pct >= 100 ? Math.round(pct) : pct.toFixed(1)) + '%' : '';
+        const summaryText = goal > 0 ? `₪${totalDonated.toLocaleString()} מתוך ₪${goal.toLocaleString()} | ${pctText}` : `₪${totalDonated.toLocaleString()}`;
+        const totalDonorsCount = donors.filter(d => (d.name || '').trim()).length;
+
+        const visibleGroups = groups.filter(g => g.showInLiveView !== false);
+        const groupsCardsHtml = visibleGroups.map(g => {
+            const gDonors = getDonorsForGroup(g);
+            const collected = gDonors.reduce((s, d) => s + (d.amount || 0), 0);
+            const gGoal = g.goal || 0;
+            const gPct = gGoal > 0 ? Math.min(100, (collected / gGoal) * 100) : 0;
+            const gText = gGoal > 0 ? `₪${collected.toLocaleString()} מתוך ₪${gGoal.toLocaleString()} | ${gPct.toFixed(1)}%` : `₪${collected.toLocaleString()} | ללא יעד מוגדר`;
+            return `<div class="leader-target-card" data-group-id="${g.id || ''}">
+                <div class="leader-target-title">${escapeHtml(g.name || '')}</div>
+                <div class="leader-target-meta">מספר מתרימים: ${gDonors.length}</div>
+                <div class="leader-target-progress-bar">
+                    <div class="leader-target-progress-fill" style="width:${gPct}%"></div>
+                    <div class="leader-target-progress-text">${gText}</div>
+                </div>
+            </div>`;
+        }).join('');
+
+        const summaryCardHtml = `<div class="leader-target-card" data-summary="overall">
+            <div class="leader-target-title">סה"כ נאסף</div>
+            <div class="leader-target-meta" style="color:white;">${totalDonorsCount} מתרימים</div>
+            <div class="leader-target-progress-bar">
+                <div class="leader-target-progress-fill" style="width:${pct}%"></div>
+                <div class="leader-target-progress-text">${summaryText}</div>
+            </div>
+        </div>`;
+
+        const leadersHtml = hideCards ? '' : top5.map((d, i) => {
+            const rank = i + 1;
+            return `<div class="leader-item rank-${rank}">
+                <div class="leader-rank">${rank}</div>
+                <div class="leader-info"><div class="leader-name">${escapeHtml(d.displayName || d.name)}</div></div>
+                <div class="leader-total">₪${(d.amount||0).toLocaleString()}</div>
+            </div>`;
+        }).join('');
+
+        const leadersTargetsBlock = document.getElementById('leadersTargetsBlock');
+        if (leadersList) leadersList.innerHTML = leadersHtml;
+        if (leadersTargetsBlock) leadersTargetsBlock.innerHTML = groupsCardsHtml + summaryCardHtml;
+
+        const donorsSortBy = 'name';
+        const donorsByGroup = new Map();
+        donors.filter(d => (d.name || '').trim()).forEach(d => {
+            const gid = d.groupId != null && d.groupId !== '' ? String(d.groupId) : '_ungrouped';
+            if (!donorsByGroup.has(gid)) donorsByGroup.set(gid, []);
+            donorsByGroup.get(gid).push(d);
+        });
+        const groupRenderOrder = visibleGroups.length > 0
+            ? [...visibleGroups.map(g => g.id || '').filter(Boolean), ...(donorsByGroup.has('_ungrouped') ? ['_ungrouped'] : [])]
+            : ['_ungrouped'];
+        let itemCounter = 0;
+        const htmlParts = [];
+        groupRenderOrder.forEach(groupId => {
+            const group = groups.find(g => String(g.id || '') === groupId);
+            const groupName = group ? (group.name || '').toString().trim() || ('קבוצה ' + groupId) : (groupId === '_ungrouped' ? 'ללא קבוצה' : 'קבוצה ' + groupId);
+            let donorsInGroup = donorsByGroup.get(groupId) || [];
+            if (donorsSortBy === 'name') donorsInGroup = [...donorsInGroup].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'he'));
+            else if (donorsSortBy === 'amount') donorsInGroup = [...donorsInGroup].sort((a, b) => (b.amount || 0) - (a.amount || 0));
+            else if (donorsSortBy === 'percentage') donorsInGroup = [...donorsInGroup].sort((a, b) => {
+                const ap = (a.personalGoal || 0) > 0 ? (a.amount / a.personalGoal) * 100 : 0;
+                const bp = (b.personalGoal || 0) > 0 ? (b.amount / b.personalGoal) * 100 : 0;
+                return bp - ap;
+            });
+            const groupCollected = donorsInGroup.reduce((s, d) => s + (d.amount || 0), 0);
+            const groupGoal = group ? (group.goal || 0) : 0;
+            const groupPercentage = groupGoal > 0 ? (groupCollected / groupGoal) * 100 : 0;
+            const progressWidth = Math.min(groupPercentage, 100);
+            const amountsText = groupGoal > 0 
+                ? `₪${groupCollected.toLocaleString()} מתוך ₪${groupGoal.toLocaleString()}`
+                : `₪${groupCollected.toLocaleString()} | ללא יעד מוגדר`;
+            htmlParts.push(`
+                <div class="live-donor-group-header" data-group-id="${groupId}">
+                    <div class="group-header-title">${escapeHtml(groupName)}</div>
+                    <div class="group-header-progress-container">
+                        <div class="group-header-progress-bar">
+                            <div class="group-header-progress-fill" style="width: ${progressWidth}%"></div>
+                        </div>
+                        <div class="group-header-info">
+                            <span class="group-header-percentage">${groupGoal > 0 ? `${Math.min(100, groupPercentage).toFixed(1)}%` : '—'}</span>
+                            <span class="group-header-amounts">${amountsText}</span>
+                        </div>
+                    </div>
+                </div>
+            `);
+            donorsInGroup.forEach(donor => {
+                const personalGoal = donor.personalGoal || DEFAULT_DONOR_GOAL;
+                const percentage = personalGoal > 0 ? (donor.amount / personalGoal) * 100 : 0;
+                const uniqueId = 'donor_' + (donor.id || '') + '_' + (itemCounter++);
+                htmlParts.push(`
+                    <div class="live-donor-card" data-donor-id="${donor.id || ''}">
+                        <div class="live-donor-progress-circle-wrapper">
+                            ${createProgressCircle(Math.min(percentage, 100), uniqueId, percentage)}
+                        </div>
+                        <div class="live-donor-info">
+                            <div class="live-donor-name">${escapeHtml(donor.displayName || donor.name)}</div>
+                            <div class="live-donor-group">${escapeHtml(groupName)}</div>
+                            <div class="live-donor-amount">
+                                <span class="amount-value">${(donor.amount || 0).toLocaleString()}</span>
+                                מתוך
+                                <span class="goal-value">${personalGoal.toLocaleString()}</span>
+                                ש"ח
+                            </div>
+                        </div>
+                    </div>
+                `);
+            });
+        });
+
+        const donorCardsHtml = htmlParts.join('');
+        if (donorsScroll) {
+            stopDonorsScroll();
+            donorsScroll.innerHTML = donorCardsHtml + donorCardsHtml;
+            donorsScroll.style.gap = (liveViewSettings.donorGap || 10) + 'px';
+        }
+
+        if (liveViewSettings.enableAutoScroll && donorsScroll) {
+            requestAnimationFrame(() => startDonorsScroll());
+        }
+        requestAnimationFrame(() => startLeadersScroll());
+    }
+
+    function startDonorsScroll() {
+        const container = document.getElementById('liveDonorsScroll');
+        if (!container || donorsScrollHandle) return;
+        const half = container.scrollHeight / 2;
+        if (!half || !isFinite(half) || half < 100) return;
+        const speedValue = liveViewSettings.donorsScrollSpeed || 28;
+        const speed = 5 + (speedValue - 10) * 65 / 90;
+        let currentY = (container._scrollSavedY && container._scrollSavedY < 0) ? container._scrollSavedY : 0;
+        container._scrollSavedY = 0;
+        let lastTs = null;
+
+        function tick(timestamp) {
+            if (lastTs === null) lastTs = timestamp;
+            let delta = timestamp - lastTs;
+            if (delta > 100) delta = 16;
+            delta = Math.min(33, delta);
+            lastTs = timestamp;
+            currentY -= speed * delta / 1000;
+            if (currentY <= -half) currentY += half;
+            container.style.transform = 'translate3d(0,' + Math.round(currentY) + 'px,0)';
+            donorsScrollLastTime = timestamp;
+            donorsScrollHandle = requestAnimationFrame(tick);
+        }
+        donorsScrollHandle = requestAnimationFrame(tick);
+    }
+
+    function stopDonorsScroll() {
+        const container = document.getElementById('liveDonorsScroll');
+        if (container && container.style.transform) {
+            const m = container.style.transform.match(/translate3d\(0,\s*(-?[\d.]+)px/);
+            if (m) container._scrollSavedY = parseFloat(m[1]) || 0;
+        }
+        if (donorsScrollHandle) {
+            cancelAnimationFrame(donorsScrollHandle);
+            donorsScrollHandle = null;
+        }
+    }
+
+    function startLeadersScroll() {
+        const inner = document.getElementById('leadersScrollInner');
+        const primary = document.getElementById('leadersScrollPrimary');
+        const clone = document.getElementById('leadersScrollClone');
+        const targetsBlock = document.getElementById('leadersTargetsBlock');
+        if (!inner || !primary || !clone || !targetsBlock) return;
+        const content = targetsBlock;
+        if (!content || !content.children.length) return;
+        clone.innerHTML = content.outerHTML;
+        clone.style.display = 'block';
+        const contentHeight = primary.offsetHeight;
+        if (!contentHeight || !isFinite(contentHeight) || contentHeight < 80) {
+            leadersScrollIsRunning = false;
+            return;
+        }
+        leadersScrollIsRunning = true;
+        leadersScrollLastTime = performance.now();
+        const onIteration = () => { leadersScrollLastTime = performance.now(); };
+        inner.removeEventListener('animationiteration', onIteration);
+        inner.addEventListener('animationiteration', onIteration);
+        const speed = 30;
+        const durationMs = Math.round((contentHeight / speed) * 1000);
+        inner.style.setProperty('--leaders-scroll-distance', contentHeight + 'px');
+        inner.style.setProperty('--leaders-scroll-duration', durationMs + 'ms');
+        inner.removeAttribute('data-leaders-scroll');
+        inner.offsetHeight;
+        inner.setAttribute('data-leaders-scroll', '1');
+    }
+
+    function showUpdateIndicator(label, percent) {
+        const ind = document.getElementById('liveViewUpdateIndicator');
+        const titleEl = document.getElementById('updateIndicatorTitle');
+        const percentEl = document.getElementById('updateIndicatorPercent');
+        const fillEl = document.getElementById('updateIndicatorFill');
+        if (ind) ind.classList.add('show');
+        if (titleEl) titleEl.textContent = label || 'בדיקת סכום';
+        if (percentEl) percentEl.textContent = (percent || 0) + '%';
+        if (fillEl) fillEl.style.width = Math.min(100, Math.max(0, percent || 0)) + '%';
+    }
+    function hideUpdateIndicator() {
+        const ind = document.getElementById('liveViewUpdateIndicator');
+        if (ind) ind.classList.remove('show');
+    }
+    async function refresh() {
+        const isPeriodicRefresh = hasLoadedOnce;
+        try {
+            if (isPeriodicRefresh) {
+                showUpdateIndicator('בדיקת סכום', 0);
+                const steps = [25, 50, 75];
+                let stepIdx = 0;
+                const stepInterval = setInterval(() => {
+                    if (stepIdx < steps.length) showUpdateIndicator('בדיקת סכום', steps[stepIdx++]);
+                    else clearInterval(stepInterval);
+                }, 400);
+            }
+            await loadData();
+            if (isPeriodicRefresh) showUpdateIndicator('בדיקת סכום', 100);
+            render();
+            hasLoadedOnce = true;
+            if (isPeriodicRefresh) setTimeout(hideUpdateIndicator, 800);
+        } catch (e) {
+            console.error(e);
+            if (isPeriodicRefresh) hideUpdateIndicator();
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                overlay.classList.remove('hidden');
+                overlay.innerHTML = '<div class="error-msg">שגיאה בטעינה: ' + (e.message || e) + '<br><br>ודא שכתובת ה-Web App נכונה בהגדרות.</div>';
+            }
+        }
+    }
+
+    function scrollWatchdog() {
+        if (!liveViewSettings.enableAutoScroll) return;
+        const now = performance.now();
+        const container = document.getElementById('liveDonorsScroll');
+        if (container && container.scrollHeight >= 200) {
+            if (!donorsScrollHandle) {
+                startDonorsScroll();
+            } else if (now - donorsScrollLastTime > 10000) {
+                donorsScrollHandle = null;
+                startDonorsScroll();
+            }
+        }
+        const targetsBlock = document.getElementById('leadersTargetsBlock');
+        if (targetsBlock && targetsBlock.children.length > 0) {
+            if (!leadersScrollIsRunning) {
+                startLeadersScroll();
+            } else if (now - leadersScrollLastTime > 60000) {
+                leadersScrollIsRunning = false;
+                startLeadersScroll();
+            }
+        }
+    }
+
+    async function init() {
+        loadSettings();
+        try {
+            if (localStorage.getItem('tvModeEnabled') === '1') document.body.classList.add('tv-mode');
+        } catch (e) {}
+        const overlay = document.getElementById('loadingOverlay');
+        try {
+            await refresh();
+            if (overlay) overlay.classList.add('hidden');
+            refreshInterval = setInterval(refresh, 5 * 60 * 1000);
+            setInterval(scrollWatchdog, 2000);
+        } catch (e) {
+            if (overlay) overlay.innerHTML = '<div class="error-msg">' + (e.message || e) + '</div>';
+        }
+    }
+
+    init();
+})();
+    </script>
+</body>
+</html>
