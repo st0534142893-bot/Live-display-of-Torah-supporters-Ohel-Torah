@@ -555,7 +555,7 @@
                 <div class="liveview-setting-group">
                     <h4>גלילה</h4>
                     <div class="liveview-setting-row"><label>גלילה אוטומטית:</label><label class="switch"><input type="checkbox" id="lvEnableAutoScroll" checked><span class="switch-slider"></span></label></div>
-                    <div class="liveview-setting-row"><label>מהירות גלילה:</label><input type="range" id="lvDonorsScrollSpeed" min="1" max="100" value="50"><span id="lvDonorsScrollSpeedVal">50</span></div>
+                    <div class="liveview-setting-row"><label>מהירות גלילה:</label><input type="range" id="lvDonorsScrollSpeed" min="1" max="1000" value="100"><span id="lvDonorsScrollSpeedVal">100</span></div>
                     <div class="liveview-setting-row"><label>גלילה בעמודת מובילים:</label><select id="lvLeadersColumnScroll"><option value="groups">רק קבוצות (כרטיסיות יעדים)</option><option value="both">קבוצות + מובילים (5 הראשונים)</option></select></div>
                 </div>
                 <div class="liveview-setting-group">
@@ -646,7 +646,7 @@
             leadersGap: 14,
             donorGap: 10,
             enableAutoScroll: true,
-            donorsScrollSpeed: 50,
+            donorsScrollSpeed: 100,
             groupsSortBy: 'name',
             groupsCustomOrder: '',
             donorsSortBy: 'name',
@@ -1123,8 +1123,8 @@
         if (!container || donorsScrollHandle) return;
         const half = container.scrollHeight / 2;
         if (!half || !isFinite(half) || half < 100) return;
-        const speedValue = Math.max(1, Math.min(100, liveViewSettings.donorsScrollSpeed || 50));
-        const speed = 2 + Math.pow(speedValue / 100, 2) * 198;
+        const v = Math.max(1, Math.min(1000, liveViewSettings.donorsScrollSpeed || 100));
+        const speed = v <= 100 ? 2 + (v - 1) / 99 * 68 : 70 + (v - 100) / 900 * 50;
         let currentY = 0;
         const fromSaved = (container._scrollSavedY != null && container._scrollSavedY < 0) ? container._scrollSavedY : savedDonorsScrollY;
         if (fromSaved != null && fromSaved < 0) {
@@ -1244,6 +1244,10 @@
             render();
             hasLoadedOnce = true;
             if (isPeriodicRefresh) setTimeout(hideUpdateIndicator, 800);
+            else {
+                const ov = document.getElementById('loadingOverlay');
+                if (ov) ov.classList.add('hidden');
+            }
         } catch (e) {
             console.error(e);
             if (progressAnimationInterval) {
@@ -1358,7 +1362,7 @@
         set('lvGroupNameSize', s.groupNameSize || 28);
         set('lvLeadersWidth', s.leadersWidth || 25);
         set('lvDonorGap', s.donorGap || 10);
-        set('lvDonorsScrollSpeed', s.donorsScrollSpeed || 50);
+        set('lvDonorsScrollSpeed', s.donorsScrollSpeed || 100);
         set('lvGroupsSortBy', s.groupsSortBy || 'name');
         set('lvGroupsCustomOrder', s.groupsCustomOrder || '');
         const customRow = document.getElementById('lvGroupsCustomOrderRow');
@@ -1369,7 +1373,7 @@
         setSpan('lvGroupNameSizeVal', (s.groupNameSize || 28) + 'px');
         setSpan('lvLeadersWidthVal', (s.leadersWidth || 25) + '%');
         setSpan('lvDonorGapVal', (s.donorGap || 10) + 'px');
-        setSpan('lvDonorsScrollSpeedVal', s.donorsScrollSpeed || 50);
+        setSpan('lvDonorsScrollSpeedVal', s.donorsScrollSpeed || 100);
         setCheck('lvShowLeaders', !s.hideLeadersColumn);
         setCheck('lvHideLeaderCards', s.hideLeaderCards);
         setCheck('lvHideLeadersColumn', s.hideLeadersColumn);
@@ -1411,7 +1415,7 @@
             groupNameSize: parseInt(document.getElementById('lvGroupNameSize')?.value) || 28,
             leadersWidth: parseInt(document.getElementById('lvLeadersWidth')?.value) || 25,
             donorGap: parseInt(document.getElementById('lvDonorGap')?.value) || 10,
-            donorsScrollSpeed: parseInt(document.getElementById('lvDonorsScrollSpeed')?.value) || 50,
+            donorsScrollSpeed: parseInt(document.getElementById('lvDonorsScrollSpeed')?.value) || 100,
             groupsSortBy: document.getElementById('lvGroupsSortBy')?.value || 'name',
             groupsCustomOrder: (document.getElementById('lvGroupsCustomOrder')?.value || '').trim(),
             hideLeadersColumn: !!document.getElementById('lvHideLeadersColumn')?.checked,
