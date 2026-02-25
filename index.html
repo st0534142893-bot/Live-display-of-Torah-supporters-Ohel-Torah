@@ -561,6 +561,11 @@
                     <h4>סדר קבוצות</h4>
                     <div class="liveview-setting-row"><label>מיין קבוצות:</label><select id="lvGroupsSortBy"><option value="name">שם (א-ב)</option><option value="collected">סכום (גבוה לנמוך)</option><option value="percentage">אחוז יעד</option></select></div>
                 </div>
+                <div class="liveview-setting-group">
+                    <h4>עדכון אוטומטי</h4>
+                    <div class="liveview-setting-row"><label>תדירות עדכון:</label><select id="lvUpdateInterval"><option value="1">כל דקה</option><option value="2">כל 2 דקות</option><option value="3">כל 3 דקות</option><option value="5">כל 5 דקות</option><option value="10">כל 10 דקות</option><option value="15">כל 15 דקות</option><option value="30">כל 30 דקות</option></select></div>
+                    <div class="liveview-setting-row"><label>סוג העדכון:</label><select id="lvUpdateType"><option value="all">כל העדכונים (נדרים + גליון)</option><option value="nedarim">רק נדרים (סכום + מתרימים)</option><option value="sheet">רק גליון (קבוצות ומתרימים מהגליון)</option></select></div>
+                </div>
             </div>
             <div class="liveview-settings-actions">
                 <button class="btn" onclick="saveLiveViewSettingsFromPanel()">שמור והחל</button>
@@ -628,6 +633,8 @@
             donorsSortBy: 'name',
             donorsFilter: 'with-amount',
             leadersColumnScroll: 'groups',
+            updateIntervalMinutes: 5,
+            updateType: 'all',
             ...liveViewSettings
         };
     }
@@ -650,11 +657,20 @@
         const url = sheetUrl;
         if (!url) throw new Error('נא להגדיר כתובת Web App. פתח את הקובץ הראשי והגדר בהגדרות סנכרון.');
 
-        const [totalRes, recruitersRes, sheetRes] = await Promise.all([
-            fetchApi(url, { action: 'getNedarimTotal', light: '1', _: Date.now() }, { timeout: 45000 }).catch(() => ({ success: false })),
-            fetchApi(url, { action: 'getAllNedarimRecruiters', light: '1', _: Date.now() }, { timeout: 60000 }).catch(() => ({ success: false })),
-            fetchApi(url, { action: 'getAll', _: Date.now() }, { timeout: 25000 }).catch(() => ({ success: false }))
-        ]);
+        const updateType = liveViewSettings.updateType || 'all';
+        const needsTotal = updateType === 'all' || updateType === 'nedarim' || updateType === 'sheet';
+        const needsRecruiters = updateType === 'all' || updateType === 'nedarim';
+        const needsSheet = updateType === 'all' || updateType === 'sheet';
+
+        const promises = [];
+        if (needsTotal) promises.push(fetchApi(url, { action: 'getNedarimTotal', light: '1', _: Date.now() }, { timeout: 45000 }).catch(() => ({ success: false })));
+        else promises.push(Promise.resolve({ success: false }));
+        if (needsRecruiters) promises.push(fetchApi(url, { action: 'getAllNedarimRecruiters', light: '1', _: Date.now() }, { timeout: 60000 }).catch(() => ({ success: false })));
+        else promises.push(Promise.resolve({ recruiters: [] }));
+        if (needsSheet) promises.push(fetchApi(url, { action: 'getAll', _: Date.now() }, { timeout: 25000 }).catch(() => ({ success: false })));
+        else promises.push(Promise.resolve({ donors: [], groups: [] }));
+
+        const [totalRes, recruitersRes, sheetRes] = await Promise.all(promises);
 
         if (totalRes.success && totalRes.totalDonated !== undefined) {
             totalDonated = parseInt(totalRes.totalDonated) || 0;
@@ -673,7 +689,17 @@
             if (id != null && name) recruiterMap.set(String(id), { name, amount });
         });
 
-        if (sheetDonors.length > 0 && sheetGroups.length > 0) {
+        if (updateType === 'sheet' && sheetDonors.length > 0 && sheetGroups.length > 0) {
+            groups = sheetGroups;
+            donors = sheetDonors.map(d => ({
+                id: d.id,
+                name: (d.displayName || d.name || '').trim(),
+                displayName: d.displayName || d.name || '',
+                amount: parseInt(d.amount) || 0,
+                groupId: d.groupId,
+                personalGoal: Math.max(0, Math.round(parseFloat(d.personalGoal) || parseFloat(d.goal) || DEFAULT_DONOR_GOAL))
+            }));
+        } else if ((updateType === 'all') && sheetDonors.length > 0 && sheetGroups.length > 0) {
             groups = sheetGroups;
             donors = sheetDonors.map(d => {
                 const matrimId = d.nedarimMatrimId ? String(d.nedarimMatrimId).trim() : null;
@@ -1201,6 +1227,8 @@
         setCheck('lvEnableAutoScroll', s.enableAutoScroll !== false);
         set('lvDonorsFilter', s.donorsFilter || 'with-amount');
         set('lvLeadersColumnScroll', s.leadersColumnScroll || 'groups');
+        set('lvUpdateInterval', String(s.updateIntervalMinutes || 5));
+        set('lvUpdateType', s.updateType || 'all');
     }
     function bindSettingsInputs() {
         const range = (id, spanId, suffix) => {
@@ -1235,13 +1263,21 @@
             showTotalBanner: !!document.getElementById('lvShowTotalBanner')?.checked,
             enableAutoScroll: !!document.getElementById('lvEnableAutoScroll')?.checked,
             donorsFilter: document.getElementById('lvDonorsFilter')?.value || 'with-amount',
-            leadersColumnScroll: document.getElementById('lvLeadersColumnScroll')?.value || 'groups'
+            leadersColumnScroll: document.getElementById('lvLeadersColumnScroll')?.value || 'groups',
+            updateIntervalMinutes: parseInt(document.getElementById('lvUpdateInterval')?.value) || 5,
+            updateType: document.getElementById('lvUpdateType')?.value || 'all'
         };
         try { localStorage.setItem('liveViewSettings', JSON.stringify(liveViewSettings)); } catch (e) {}
         render();
+        startRefreshInterval();
         closeLiveViewSettings();
     }
 
+    function startRefreshInterval() {
+        if (refreshInterval) clearInterval(refreshInterval);
+        const mins = Math.max(1, parseInt(liveViewSettings.updateIntervalMinutes) || 5);
+        refreshInterval = setInterval(refresh, mins * 60 * 1000);
+    }
     async function init() {
         loadSettings();
         try {
@@ -1251,7 +1287,7 @@
         try {
             await refresh();
             if (overlay) overlay.classList.add('hidden');
-            refreshInterval = setInterval(refresh, 5 * 60 * 1000);
+            startRefreshInterval();
             setInterval(scrollWatchdog, 2000);
             initButtonsAutoHide();
         } catch (e) {
