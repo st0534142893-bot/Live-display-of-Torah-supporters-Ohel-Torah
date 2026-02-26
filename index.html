@@ -191,7 +191,7 @@
             will-change: auto;
             transform: none;
         }
-        /* גלילת מתרימים – top + CSS animation (כמו scroll-wrapper/scroll-content) */
+        /* גלילת מתרימים – transform + CSS animation (כמו scroll-wrapper/scroll-content) */
         .live-donors-scroll-viewport.scroll-type-transform-animation .live-donors-scroll-inner {
             position: absolute;
             width: 100%;
@@ -205,11 +205,12 @@
         .live-donors-scroll-viewport.scroll-type-transform-animation .live-donors-scroll-clone { display: flex; flex-shrink: 0; }
         .live-donors-scroll-inner[data-donors-scroll] {
             animation: donorsScrollUp var(--donors-scroll-duration, 60s) linear infinite;
-            will-change: top;
+            will-change: transform;
+            backface-visibility: hidden;
         }
         @keyframes donorsScrollUp {
-            0% { top: 0; }
-            100% { top: calc(-1 * var(--donors-scroll-distance, 500px)); }
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-50%); }
         }
         .live-donors-scroll {
             display: flex;
@@ -364,8 +365,8 @@
             backface-visibility: hidden;
         }
         @keyframes leadersScrollUp {
-            0% { transform: translate3d(0, 0, 0); }
-            100% { transform: translate3d(0, calc(-1 * var(--leaders-scroll-distance, 500px)), 0); }
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-50%); }
         }
         /* סימון עדכון – מוצג בזמן רענון נתונים */
         .live-view-update-indicator {
@@ -620,10 +621,10 @@
                 </div>
                 <div class="liveview-setting-group">
                     <h4>סדר קבוצות</h4>
-                    <div class="liveview-setting-row"><label>מיין קבוצות:</label><select id="lvGroupsSortBy"><option value="name">שם (א-ב)</option><option value="collected">סכום (גבוה לנמוך)</option><option value="percentage">אחוז יעד</option><option value="custom">סדר מותאם אישית</option></select></div>
+                    <div class="liveview-setting-row"><label>מיין קבוצות:</label><select id="lvGroupsSortBy"><option value="name">שם (א-ב)</option><option value="collected">סכום (גבוה לנמוך)</option><option value="percentage">אחוז יעד</option><option value="custom" selected>סדר מותאם אישית</option></select></div>
                     <div class="liveview-setting-row" id="lvGroupsCustomOrderRow" style="display: none; flex-direction: column; align-items: stretch;">
-                        <label>סדר הצגה (שורה אחת לכל קבוצה, מלמעלה למטה):</label>
-                        <textarea id="lvGroupsCustomOrder" rows="4" placeholder="שיעור א&#10;שיעור ב&#10;שיעור ג" style="width: 100%; padding: 8px; border-radius: 8px; font-size: 14px; margin-top: 4px;"></textarea>
+                        <label>סדר הצגה (מופרד בפסיקים או שורות):</label>
+                        <textarea id="lvGroupsCustomOrder" rows="3" placeholder="שיעור א, שיעור ב, שיעור ג, קיבוץ א, קיבוץ ב, קיבוץ גבוה" style="width: 100%; padding: 8px; border-radius: 8px; font-size: 14px; margin-top: 4px;">שיעור א, שיעור ב, שיעור ג, קיבוץ א, קיבוץ ב, קיבוץ גבוה</textarea>
                     </div>
                 </div>
                 <div class="liveview-setting-group">
@@ -711,8 +712,8 @@
             enableAutoScroll: true,
             donorsScrollSpeed: 50,
             donorsScrollSpeedFast: 0,
-            groupsSortBy: 'name',
-            groupsCustomOrder: '',
+            groupsSortBy: 'custom',
+            groupsCustomOrder: 'שיעור א, שיעור ב, שיעור ג, קיבוץ א, קיבוץ ב, קיבוץ גבוה',
             donorsSortBy: 'name',
             donorsFilter: 'with-amount',
             leadersColumnScroll: 'groups',
@@ -1008,7 +1009,7 @@
 
         let visibleGroups = groups.filter(g => g.showInLiveView !== false);
         const sortBy = liveViewSettings.groupsSortBy || 'name';
-        const customOrder = (liveViewSettings.groupsCustomOrder || '').split(/\n/).map(s => s.trim()).filter(Boolean);
+        const customOrder = (liveViewSettings.groupsCustomOrder || '').split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
         if (sortBy === 'custom' && customOrder.length > 0) {
             const orderMap = new Map();
             customOrder.forEach((name, idx) => {
@@ -1119,6 +1120,26 @@
             : ['_ungrouped'];
         let itemCounter = 0;
         const htmlParts = [];
+        /* כרטיסיית סיכום היעד הכללי מעל רשימת המתרימים */
+        const overallPct = goal > 0 ? Math.min(100, (totalDonated / goal) * 100) : 0;
+        const overallProgressWidth = Math.min(overallPct, 100);
+        const overallAmountsText = goal > 0
+            ? `₪${totalDonated.toLocaleString()} מתוך ₪${goal.toLocaleString()}`
+            : `₪${totalDonated.toLocaleString()} | ללא יעד מוגדר`;
+        htmlParts.push(`
+            <div class="live-donor-group-header" data-summary="overall">
+                <div class="group-header-title">סיכום היעד הכללי</div>
+                <div class="group-header-progress-container">
+                    <div class="group-header-progress-bar">
+                        <div class="group-header-progress-fill" style="width: ${overallProgressWidth}%"></div>
+                    </div>
+                    <div class="group-header-info">
+                        <span class="group-header-percentage">${goal > 0 ? `${overallPct.toFixed(1)}%` : '—'}</span>
+                        <span class="group-header-amounts">${overallAmountsText}</span>
+                    </div>
+                </div>
+            </div>
+        `);
         groupRenderOrder.forEach(groupId => {
             let donorsInGroup = donorsByGroup.get(String(groupId)) || donorsByGroup.get(groupId) || [];
             if (donorsInGroup.length === 0) return;
@@ -1229,7 +1250,6 @@
 
         if (useTransformAnimation && scrollInner) {
             const durationMs = Math.round((half / speed) * 1000);
-            scrollInner.style.setProperty('--donors-scroll-distance', half + 'px');
             scrollInner.style.setProperty('--donors-scroll-duration', durationMs + 'ms');
             const ratio = savedDonorsScrollRatio ?? (scrollInner._scrollSavedY != null && scrollInner._scrollSavedY < 0 ? -scrollInner._scrollSavedY / half : null);
             scrollInner._scrollSavedY = 0;
@@ -1253,7 +1273,7 @@
         if (scrollInner) {
             scrollInner.removeAttribute('data-donors-scroll');
             scrollInner.style.animationDelay = '';
-            scrollInner.style.top = '';
+            scrollInner.style.transform = '';
         }
         if (useTvScroll && viewport) {
             const tvSpeed = scrollType === 'tv-slow' ? speed * 0.5 : speed;
@@ -1326,9 +1346,6 @@
                 }
                 scrollInner.removeAttribute('data-donors-scroll');
                 scrollInner.style.animationDelay = '';
-                if (savedDonorsScrollRatio != null && savedDonorsScrollRatio >= 0 && savedDonorsScrollRatio < 1) {
-                    scrollInner.style.top = Math.round(-savedDonorsScrollRatio * half) + 'px';
-                }
             } else if (container && container.style.transform) {
                 const m = container.style.transform.match(/translate3d\(0,\s*(-?[\d.]+)px/);
                 if (m) {
@@ -1369,7 +1386,6 @@
         inner.addEventListener('animationiteration', onIteration);
         const speed = 30;
         const durationMs = Math.round((contentHeight / speed) * 1000);
-        inner.style.setProperty('--leaders-scroll-distance', contentHeight + 'px');
         inner.style.setProperty('--leaders-scroll-duration', durationMs + 'ms');
         const progress = savedLeadersScrollProgress;
         savedLeadersScrollProgress = null;
