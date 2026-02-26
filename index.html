@@ -653,6 +653,7 @@
                     <div class="liveview-setting-row"><label>הסתר עמודת מובילים:</label><label class="switch"><input type="checkbox" id="lvHideLeadersColumn"><span class="switch-slider"></span></label></div>
                     <div class="liveview-setting-row"><label>פס סיכום כשמובילים מוסתרים:</label><label class="switch"><input type="checkbox" id="lvShowTotalBanner"><span class="switch-slider"></span></label></div>
                     <div class="liveview-setting-row"><label>הצג ברשימת מתרימים:</label><select id="lvDonorsFilter"><option value="with-amount">רק מי שאסף (הסתר מי שלא אסף כלל)</option><option value="all">כל המתרימים</option></select></div>
+                    <div class="liveview-setting-row"><label>מיקום סכום כללי:</label><select id="lvTotalSummaryLocation"><option value="donors">תצוגת לייב (מעל המתרימים)</option><option value="leaders">עמודת המובילים</option></select></div>
                 </div>
                 <div class="liveview-setting-group">
                     <h4>גלילה</h4>
@@ -760,6 +761,7 @@
             donorsSortBy: 'name',
             donorsFilter: 'with-amount',
             leadersColumnScroll: 'groups',
+            totalSummaryLocation: 'donors',
             updateIntervalMinutes: 5,
             updateType: 'all',
             tvModeEnabled: false,
@@ -1119,8 +1121,9 @@
 
         const leadersTargetsBlock = document.getElementById('leadersTargetsBlock');
         const leadersScrollMode = liveViewSettings.leadersColumnScroll || 'groups';
+        const totalSummaryLoc = liveViewSettings.totalSummaryLocation || 'donors';
         if (leadersList) leadersList.innerHTML = leadersHtml;
-        if (leadersTargetsBlock) leadersTargetsBlock.innerHTML = groupsCardsHtml + summaryCardHtml;
+        if (leadersTargetsBlock) leadersTargetsBlock.innerHTML = groupsCardsHtml + (totalSummaryLoc === 'leaders' ? summaryCardHtml : '');
         const primary = document.getElementById('leadersScrollPrimary');
         const staticTop = document.getElementById('leadersStaticTop');
         if (leadersList && primary && staticTop && !hideCards) {
@@ -1167,9 +1170,11 @@
         const overallAmountsText = goal > 0
             ? `₪${totalDonated.toLocaleString()} מתוך ₪${goal.toLocaleString()}`
             : `₪${totalDonated.toLocaleString()} | ללא יעד מוגדר`;
+        const summaryBar = document.getElementById('liveOverallSummaryBar');
         const fillEl = document.getElementById('liveOverallSummaryFill');
         const percentEl = document.getElementById('liveOverallSummaryPercent');
         const amountsEl = document.getElementById('liveOverallSummaryAmounts');
+        if (summaryBar) summaryBar.style.display = totalSummaryLoc === 'donors' ? '' : 'none';
         if (fillEl) fillEl.style.width = overallProgressWidth + '%';
         if (percentEl) percentEl.textContent = goal > 0 ? overallPct.toFixed(1) + '%' : '—';
         if (amountsEl) amountsEl.textContent = overallAmountsText;
@@ -1617,6 +1622,7 @@
         setCheck('lvEnableAutoScroll', s.enableAutoScroll !== false);
         setCheck('lvTvModeEnabled', s.tvModeEnabled);
         set('lvDonorsFilter', s.donorsFilter || 'with-amount');
+        set('lvTotalSummaryLocation', s.totalSummaryLocation || 'donors');
         set('lvLeadersColumnScroll', s.leadersColumnScroll || 'groups');
         set('lvUpdateInterval', String(s.updateIntervalMinutes || 5));
         set('lvUpdateType', s.updateType || 'all');
@@ -1673,6 +1679,7 @@
             enableAutoScroll: !!document.getElementById('lvEnableAutoScroll')?.checked,
             tvModeEnabled: !!document.getElementById('lvTvModeEnabled')?.checked,
             donorsFilter: document.getElementById('lvDonorsFilter')?.value || 'with-amount',
+            totalSummaryLocation: document.getElementById('lvTotalSummaryLocation')?.value || 'donors',
             leadersColumnScroll: document.getElementById('lvLeadersColumnScroll')?.value || 'groups',
             updateIntervalMinutes: parseInt(document.getElementById('lvUpdateInterval')?.value) || 5,
             updateType: document.getElementById('lvUpdateType')?.value || 'all'
