@@ -163,9 +163,24 @@
             display: flex;
             flex-direction: column;
         }
+        /* כרטיסיית סיכום היעד הכללי – קבועה מעל אזור המתרימים בלבד, לא משפיעה על עמודת המובילים */
+        .live-overall-summary-bar {
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.95);
+            border-bottom: 3px solid var(--primary-gold);
+            padding: 12px 18px;
+            box-shadow: 0 4px 16px rgba(212, 175, 55, 0.25);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 10;
+        }
+        .live-overall-summary-bar .group-header-title { font-size: 20px; }
+        .live-overall-summary-bar .group-header-progress-bar { height: 20px; }
         .live-donors-container {
+            flex: 1;
+            min-height: 0;
             width: 100%;
-            height: 100%;
             overflow: hidden;
             position: relative;
             background: url("https://i.postimg.cc/PqpcB8WP/rq'-khh-lmsk.jpg") center/cover no-repeat;
@@ -560,6 +575,18 @@
                 </div>
             </div>
             <div class="live-donors-area">
+                <div class="live-overall-summary-bar" id="liveOverallSummaryBar">
+                    <div class="group-header-title">סיכום היעד הכללי</div>
+                    <div class="group-header-progress-container">
+                        <div class="group-header-progress-bar">
+                            <div class="group-header-progress-fill" id="liveOverallSummaryFill" style="width: 0%"></div>
+                        </div>
+                        <div class="group-header-info">
+                            <span class="group-header-percentage" id="liveOverallSummaryPercent">—</span>
+                            <span class="group-header-amounts" id="liveOverallSummaryAmounts">₪0</span>
+                        </div>
+                    </div>
+                </div>
                 <div class="live-donors-container">
                     <div class="live-donors-scroll-viewport" id="liveDonorsScrollViewport">
                         <div class="live-donors-scroll-inner" id="liveDonorsScrollInner">
@@ -1118,28 +1145,21 @@
         const groupRenderOrder = visibleGroups.length > 0
             ? [...visibleGroups.map(g => g.id || '').filter(Boolean), ...(donorsByGroup.has('_ungrouped') ? ['_ungrouped'] : [])]
             : ['_ungrouped'];
-        let itemCounter = 0;
-        const htmlParts = [];
-        /* כרטיסיית סיכום היעד הכללי מעל רשימת המתרימים */
+        /* עדכון כרטיסיית סיכום היעד הכללי – קבועה מעל אזור המתרימים */
         const overallPct = goal > 0 ? Math.min(100, (totalDonated / goal) * 100) : 0;
         const overallProgressWidth = Math.min(overallPct, 100);
         const overallAmountsText = goal > 0
             ? `₪${totalDonated.toLocaleString()} מתוך ₪${goal.toLocaleString()}`
             : `₪${totalDonated.toLocaleString()} | ללא יעד מוגדר`;
-        htmlParts.push(`
-            <div class="live-donor-group-header" data-summary="overall">
-                <div class="group-header-title">סיכום היעד הכללי</div>
-                <div class="group-header-progress-container">
-                    <div class="group-header-progress-bar">
-                        <div class="group-header-progress-fill" style="width: ${overallProgressWidth}%"></div>
-                    </div>
-                    <div class="group-header-info">
-                        <span class="group-header-percentage">${goal > 0 ? `${overallPct.toFixed(1)}%` : '—'}</span>
-                        <span class="group-header-amounts">${overallAmountsText}</span>
-                    </div>
-                </div>
-            </div>
-        `);
+        const fillEl = document.getElementById('liveOverallSummaryFill');
+        const percentEl = document.getElementById('liveOverallSummaryPercent');
+        const amountsEl = document.getElementById('liveOverallSummaryAmounts');
+        if (fillEl) fillEl.style.width = overallProgressWidth + '%';
+        if (percentEl) percentEl.textContent = goal > 0 ? overallPct.toFixed(1) + '%' : '—';
+        if (amountsEl) amountsEl.textContent = overallAmountsText;
+
+        let itemCounter = 0;
+        const htmlParts = [];
         groupRenderOrder.forEach(groupId => {
             let donorsInGroup = donorsByGroup.get(String(groupId)) || donorsByGroup.get(groupId) || [];
             if (donorsInGroup.length === 0) return;
