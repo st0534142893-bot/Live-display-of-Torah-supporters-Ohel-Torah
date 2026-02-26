@@ -166,7 +166,8 @@
         /* כרטיסיית סיכום היעד הכללי – קבועה מעל אזור המתרימים בלבד, לא משפיעה על עמודת המובילים */
         .live-overall-summary-bar {
             flex-shrink: 0;
-            background: rgba(255, 255, 255, 0.95);
+            position: relative;
+            background: url("https://bestfile.io/en/GOFjC7IH9ty19mr/preview") center/cover no-repeat;
             border-bottom: 3px solid var(--primary-gold);
             padding: 12px 18px;
             box-shadow: 0 4px 16px rgba(212, 175, 55, 0.25);
@@ -174,9 +175,24 @@
             flex-direction: column;
             gap: 8px;
             z-index: 10;
+            overflow: hidden;
         }
+        .live-overall-summary-bar::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.55);
+            z-index: 0;
+        }
+        .live-overall-summary-bar .group-header-title,
+        .live-overall-summary-bar .group-header-progress-container,
+        .live-overall-summary-bar .group-header-info { position: relative; z-index: 1; }
         .live-overall-summary-bar .group-header-title { font-size: 20px; }
         .live-overall-summary-bar .group-header-progress-bar { height: 20px; }
+        .live-overall-summary-bar .group-header-progress-fill {
+            background: linear-gradient(90deg, #B8860B 0%, #D4AF37 20%, #FFD700 50%, #D4AF37 80%, #B8860B 100%) !important;
+            box-shadow: 0 0 12px rgba(255, 215, 0, 0.5);
+        }
         .live-donors-container {
             flex: 1;
             min-height: 0;
