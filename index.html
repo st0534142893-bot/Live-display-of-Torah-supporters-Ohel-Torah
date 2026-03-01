@@ -365,6 +365,31 @@
             box-shadow: 0 4px 20px rgba(0,0,0,0.2);
         }
         .live-total-banner.active { display: flex; align-items: center; gap: 12px; }
+        /* התראת חירום – אדום, חצי דקה */
+        .live-emergency-banner {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 10005;
+            background: linear-gradient(135deg, #b91c1c 0%, #dc2626 50%, #991b1b 100%);
+            color: white;
+            padding: 16px 24px;
+            font-size: 22px;
+            font-weight: 800;
+            text-align: center;
+            box-shadow: 0 4px 24px rgba(185, 28, 28, 0.6);
+            animation: emergencyPulse 1.5s ease-in-out infinite;
+        }
+        .live-emergency-banner.active { display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+        .live-emergency-banner .emergency-title { font-size: 26px; }
+        .live-emergency-banner .emergency-cities { font-size: 18px; opacity: 0.95; }
+        .live-emergency-banner .emergency-instructions { font-size: 16px; opacity: 0.9; }
+        @keyframes emergencyPulse {
+            0%, 100% { box-shadow: 0 4px 24px rgba(185, 28, 28, 0.6); }
+            50% { box-shadow: 0 6px 32px rgba(255, 80, 80, 0.8); }
+        }
         .loading-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -564,13 +589,18 @@
             <span id="liveTotalBannerAmount"></span>
             <span id="liveTotalBannerPercent" style="display:none;"></span>
         </div>
+        <div class="live-emergency-banner" id="liveEmergencyBanner">
+            <span class="emergency-title">⚠️ התראת חירום – פיקוד העורף</span>
+            <span class="emergency-cities" id="emergencyCities"></span>
+            <span class="emergency-instructions" id="emergencyInstructions"></span>
+        </div>
         <div class="live-view-update-indicator" id="liveViewUpdateIndicator">
             <div class="update-indicator-row">
                 <span class="update-indicator-title" id="updateIndicatorTitle">בדיקת סכום</span>
                 <span class="update-indicator-percent" id="updateIndicatorPercent">0%</span>
                 <div class="update-indicator-bar"><div class="update-indicator-fill" id="updateIndicatorFill" style="width: 0%;"></div></div>
             </div>
-            <div class="update-indicator-warning">כן מלחמה לא מלחמה, אצלנו עד הניצחון זה עד הניצחון !</div>
+            <div class="update-indicator-warning">הרה״ג שמחה שבשמחה 750000 ₪ זה לא סיםור גדול </div>
         </div>
         <div class="live-content">
             <div class="live-leaders-sidebar" id="leadersSidebar">
@@ -677,6 +707,17 @@
                     <div class="liveview-setting-row"><label>סוג העדכון:</label><select id="lvUpdateType"><option value="all">כל העדכונים (נדרים + גליון)</option><option value="nedarim">רק נדרים (סכום + מתרימים)</option><option value="sheet">רק גליון (קבוצות ומתרימים מהגליון)</option></select></div>
                 </div>
                 <div class="liveview-setting-group">
+                    <h4>התראות חירום (פיקוד העורף – ירושלים)</h4>
+                    <div class="liveview-setting-row"><label>הפעל התראות חירום:</label><label class="switch"><input type="checkbox" id="lvEmergencyAlertsEnabled"><span class="switch-slider"></span></label></div>
+                    <div class="liveview-setting-row" style="flex-direction: column; align-items: stretch; gap: 4px;">
+                        <label>כתובת שרת התראות:</label>
+                        <input type="text" id="lvEmergencyAlertsApiUrl" placeholder="http://localhost:3000" style="padding: 8px; border-radius: 8px; font-size: 14px;">
+                        <span style="font-size: 12px; color: var(--muted);">הרץ את redalert-jerusalem (npm start) על אותו מחשב או ברשת</span>
+                    </div>
+                    <div class="liveview-setting-row"><label>בדיקה כל (שניות):</label><select id="lvEmergencyCheckInterval"><option value="15">15 שניות</option><option value="30" selected>30 שניות</option><option value="60">דקה</option><option value="90">דקה וחצי</option><option value="120">2 דקות</option></select></div>
+                    <div class="liveview-setting-row"><label>משך הצגה (שניות):</label><select id="lvEmergencyDisplayDuration"><option value="30" selected>חצי דקה</option><option value="45">45 שניות</option><option value="60">דקה</option></select></div>
+                </div>
+                <div class="liveview-setting-group">
                     <h4>קישורים</h4>
                     <div class="liveview-setting-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
                         <button type="button" class="btn" onclick="window.open('https://drive.google.com/file/d/15tL2Z5rmlg5lbcLT0HK6REdML56_NOFN/view?usp=sharing','_blank')" style="width: 100%;">
@@ -711,6 +752,8 @@
     let leadersScrollIsRunning = false;
     let leadersScrollLastTime = 0;
     let hasLoadedOnce = false;
+    let emergencyAlertsInterval = null;
+    let emergencyBannerHideTimer = null;
     let buttonsHideTimer = null;
     const BUTTONS_HIDE_DELAY_MS = 3000;
     let savedDonorsScrollY = null;
@@ -765,6 +808,10 @@
             updateIntervalMinutes: 5,
             updateType: 'all',
             tvModeEnabled: false,
+            emergencyAlertsEnabled: true,
+            emergencyAlertsApiUrl: 'http://localhost:3000',
+            emergencyCheckIntervalSeconds: 30,
+            emergencyDisplayDurationSeconds: 30,
             ...liveViewSettings
         };
         const oldGap = liveViewSettings.donorGap;
@@ -1626,6 +1673,10 @@
         set('lvLeadersColumnScroll', s.leadersColumnScroll || 'groups');
         set('lvUpdateInterval', String(s.updateIntervalMinutes || 5));
         set('lvUpdateType', s.updateType || 'all');
+        setCheck('lvEmergencyAlertsEnabled', s.emergencyAlertsEnabled);
+        set('lvEmergencyAlertsApiUrl', s.emergencyAlertsApiUrl || 'http://localhost:3000');
+        set('lvEmergencyCheckInterval', String(s.emergencyCheckIntervalSeconds || 30));
+        set('lvEmergencyDisplayDuration', String(s.emergencyDisplayDurationSeconds || 30));
     }
     function bindSettingsInputs() {
         const groupsSortEl = document.getElementById('lvGroupsSortBy');
@@ -1682,7 +1733,11 @@
             totalSummaryLocation: document.getElementById('lvTotalSummaryLocation')?.value || 'donors',
             leadersColumnScroll: document.getElementById('lvLeadersColumnScroll')?.value || 'groups',
             updateIntervalMinutes: parseInt(document.getElementById('lvUpdateInterval')?.value) || 5,
-            updateType: document.getElementById('lvUpdateType')?.value || 'all'
+            updateType: document.getElementById('lvUpdateType')?.value || 'all',
+            emergencyAlertsEnabled: !!document.getElementById('lvEmergencyAlertsEnabled')?.checked,
+            emergencyAlertsApiUrl: (document.getElementById('lvEmergencyAlertsApiUrl')?.value || '').trim() || 'http://localhost:3000',
+            emergencyCheckIntervalSeconds: parseInt(document.getElementById('lvEmergencyCheckInterval')?.value) || 30,
+            emergencyDisplayDurationSeconds: parseInt(document.getElementById('lvEmergencyDisplayDuration')?.value) || 30
         };
         try {
             localStorage.setItem('liveViewSettings', JSON.stringify(liveViewSettings));
@@ -1695,6 +1750,7 @@
         }
         render();
         startRefreshInterval();
+        startEmergencyAlertsInterval();
         closeLiveViewSettings();
     }
 
@@ -1702,6 +1758,43 @@
         if (refreshInterval) clearInterval(refreshInterval);
         const mins = Math.max(1, parseInt(liveViewSettings.updateIntervalMinutes) || 5);
         refreshInterval = setInterval(refresh, mins * 60 * 1000);
+    }
+
+    function showEmergencyBanner(alert) {
+        const banner = document.getElementById('liveEmergencyBanner');
+        const citiesEl = document.getElementById('emergencyCities');
+        const instructionsEl = document.getElementById('emergencyInstructions');
+        if (!banner || !citiesEl || !instructionsEl) return;
+        citiesEl.textContent = (alert.cities || []).join(' • ') || 'ירושלים';
+        instructionsEl.textContent = alert.instructions || 'היכנסו למרחב המוגן והמתינו להנחיות';
+        banner.classList.add('active');
+        if (emergencyBannerHideTimer) clearTimeout(emergencyBannerHideTimer);
+        const duration = (liveViewSettings.emergencyDisplayDurationSeconds || 30) * 1000;
+        emergencyBannerHideTimer = setTimeout(hideEmergencyBanner, duration);
+    }
+    function hideEmergencyBanner() {
+        const banner = document.getElementById('liveEmergencyBanner');
+        if (banner) banner.classList.remove('active');
+        if (emergencyBannerHideTimer) { clearTimeout(emergencyBannerHideTimer); emergencyBannerHideTimer = null; }
+    }
+    function checkEmergencyAlert() {
+        if (!liveViewSettings.emergencyAlertsEnabled) return;
+        const base = (liveViewSettings.emergencyAlertsApiUrl || 'http://localhost:3000').replace(/\/$/, '');
+        const url = base + '/api/alert';
+        fetch(url, { credentials: 'omit' }).then(r => r.json()).then(data => {
+            if (data.hasJerusalemAlert && data.alert) showEmergencyBanner(data.alert);
+            else hideEmergencyBanner();
+        }).catch(() => {});
+    }
+    function startEmergencyAlertsInterval() {
+        if (emergencyAlertsInterval) clearInterval(emergencyAlertsInterval);
+        emergencyAlertsInterval = null;
+        if (emergencyBannerHideTimer) { clearTimeout(emergencyBannerHideTimer); emergencyBannerHideTimer = null; }
+        hideEmergencyBanner();
+        if (!liveViewSettings.emergencyAlertsEnabled) return;
+        const sec = Math.max(15, parseInt(liveViewSettings.emergencyCheckIntervalSeconds) || 30);
+        checkEmergencyAlert();
+        emergencyAlertsInterval = setInterval(checkEmergencyAlert, sec * 1000);
     }
     async function init() {
         loadSettings();
@@ -1714,6 +1807,7 @@
             await refresh();
             if (overlay) overlay.classList.add('hidden');
             startRefreshInterval();
+            startEmergencyAlertsInterval();
             setInterval(scrollWatchdog, 2000);
             initButtonsAutoHide();
         } catch (e) {
