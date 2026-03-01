@@ -631,7 +631,7 @@
             <span id="liveTotalBannerPercent" style="display:none;"></span>
         </div>
         <div class="live-emergency-banner" id="liveEmergencyBanner">
-            <span class="emergency-title">⚠️ התראת חירום – פיקוד העורף</span>
+            <span class="emergency-title">⚠️ פיקוד הגורף</span>
             <span class="emergency-cities" id="emergencyCities"></span>
             <span class="emergency-instructions" id="emergencyInstructions"></span>
             <span class="emergency-countdown" id="emergencyCountdown"></span>
@@ -642,7 +642,7 @@
                 <span class="update-indicator-percent" id="updateIndicatorPercent">0%</span>
                 <div class="update-indicator-bar"><div class="update-indicator-fill" id="updateIndicatorFill" style="width: 0%;"></div></div>
             </div>
-            <div class="update-indicator-warning">הרה״ג שמחה שבשמחה 750000 ₪ זה לא סיםור גדול </div>
+            <div class="update-indicator-warning">כן מלחמה לא מלחמה, אצלנו עד הניצחון זה עד הניצחון ! </div>
         </div>
         <div class="live-content">
             <div class="live-leaders-sidebar" id="leadersSidebar">
@@ -749,12 +749,10 @@
                     <div class="liveview-setting-row"><label>סוג העדכון:</label><select id="lvUpdateType"><option value="all">כל העדכונים (נדרים + גליון)</option><option value="nedarim">רק נדרים (סכום + מתרימים)</option><option value="sheet">רק גליון (קבוצות ומתרימים מהגליון)</option></select></div>
                 </div>
                 <div class="liveview-setting-group">
-                    <h4>התראות חירום (פיקוד העורף – ירושלים)</h4>
+                    <h4>התראות חירום (פיקוד העורף)</h4>
                     <div class="liveview-setting-row"><label>הפעל התראות חירום:</label><label class="switch"><input type="checkbox" id="lvEmergencyAlertsEnabled"><span class="switch-slider"></span></label></div>
                     <div class="liveview-setting-row" style="flex-direction: column; align-items: stretch; gap: 4px;">
-                        <label>כתובת שרת התראות:</label>
-                        <input type="text" id="lvEmergencyAlertsApiUrl" placeholder="http://localhost:3000" style="padding: 8px; border-radius: 8px; font-size: 14px;">
-                        <span style="font-size: 12px; color: var(--muted);">הרץ את redalert-jerusalem (npm start) על אותו מחשב או ברשת</span>
+                        <span style="font-size: 12px; color: var(--muted);">התראות יופיעו רק כשיש צבע אדום באזור שלך (לפי מיקום המכשיר)</span>
                     </div>
                     <div class="liveview-setting-row"><label>בדיקה כל (שניות):</label><select id="lvEmergencyCheckInterval"><option value="15">15 שניות</option><option value="30" selected>30 שניות</option><option value="60">דקה</option><option value="90">דקה וחצי</option><option value="120">2 דקות</option></select></div>
                     <div class="liveview-setting-row"><label>משך הצגה (שניות):</label><select id="lvEmergencyDisplayDuration"><option value="30" selected>חצי דקה</option><option value="45">45 שניות</option><option value="60">דקה</option></select></div>
@@ -859,7 +857,6 @@
             updateType: 'all',
             tvModeEnabled: false,
             emergencyAlertsEnabled: true,
-            emergencyAlertsApiUrl: 'http://localhost:3000',
             emergencyCheckIntervalSeconds: 30,
             emergencyDisplayDurationSeconds: 30,
             ...liveViewSettings
@@ -1728,7 +1725,6 @@
         set('lvUpdateInterval', String(s.updateIntervalMinutes || 5));
         set('lvUpdateType', s.updateType || 'all');
         setCheck('lvEmergencyAlertsEnabled', s.emergencyAlertsEnabled);
-        set('lvEmergencyAlertsApiUrl', s.emergencyAlertsApiUrl || 'http://localhost:3000');
         set('lvEmergencyCheckInterval', String(s.emergencyCheckIntervalSeconds || 30));
         set('lvEmergencyDisplayDuration', String(s.emergencyDisplayDurationSeconds || 30));
     }
@@ -1789,7 +1785,6 @@
             updateIntervalMinutes: parseInt(document.getElementById('lvUpdateInterval')?.value) || 5,
             updateType: document.getElementById('lvUpdateType')?.value || 'all',
             emergencyAlertsEnabled: !!document.getElementById('lvEmergencyAlertsEnabled')?.checked,
-            emergencyAlertsApiUrl: (document.getElementById('lvEmergencyAlertsApiUrl')?.value || '').trim() || 'http://localhost:3000',
             emergencyCheckIntervalSeconds: parseInt(document.getElementById('lvEmergencyCheckInterval')?.value) || 30,
             emergencyDisplayDurationSeconds: parseInt(document.getElementById('lvEmergencyDisplayDuration')?.value) || 30
         };
@@ -1821,7 +1816,7 @@
         const countdownEl = document.getElementById('emergencyCountdown');
         if (!banner || !citiesEl || !instructionsEl) return;
         citiesEl.textContent = (alert.cities || []).join(' • ') || 'ירושלים';
-        instructionsEl.textContent = alert.instructions || 'היכנסו למרחב המוגן והמתינו להנחיות';
+        instructionsEl.textContent = alert.instructions || 'רבותי! כעת זה הזמן שלנו להכות על ראשי נגידי עם היושבים במקלטים.';
         banner.classList.add('active');
         if (emergencyBannerHideTimer) clearTimeout(emergencyBannerHideTimer);
         if (emergencyCountdownInterval) clearInterval(emergencyCountdownInterval);
@@ -1850,13 +1845,115 @@
         if (emergencyBannerHideTimer) { clearTimeout(emergencyBannerHideTimer); emergencyBannerHideTimer = null; }
         if (emergencyCountdownInterval) { clearInterval(emergencyCountdownInterval); emergencyCountdownInterval = null; }
     }
+    // מיפוי ערים לקואורדינטות (lat, lng) - להתראות מבוססות מיקום
+    const CITIES_COORDINATES = {
+        'ירושלים': { lat: 31.7683, lng: 35.2137 },
+        'ירושלים - מרכז': { lat: 31.7767, lng: 35.2345 },
+        'ירושלים - דרום': { lat: 31.7500, lng: 35.2200 },
+        'ירושלים - צפון': { lat: 31.8000, lng: 35.2300 },
+        'ירושלים - מזרח': { lat: 31.7800, lng: 35.2500 },
+        'ירושלים - מערב': { lat: 31.7700, lng: 35.1900 },
+        'מבשרת ציון': { lat: 31.8025, lng: 35.1522 },
+        'מעלה אדומים': { lat: 31.7781, lng: 35.3011 },
+        'גבעת זאב': { lat: 31.8628, lng: 35.1714 },
+        'ביתר עילית': { lat: 31.6969, lng: 35.1183 },
+        'בית שמש': { lat: 31.7514, lng: 34.9886 },
+        'מודיעין': { lat: 31.8975, lng: 35.0103 },
+        'תל אביב - מרכז העיר': { lat: 32.0853, lng: 34.7818 },
+        'תל אביב - דרום העיר': { lat: 32.0500, lng: 34.7700 },
+        'תל אביב - יפו': { lat: 32.0500, lng: 34.7500 },
+        'רמת גן': { lat: 32.0700, lng: 34.8243 },
+        'גבעתיים': { lat: 32.0717, lng: 34.8100 },
+        'בני ברק': { lat: 32.0833, lng: 34.8333 },
+        'חולון': { lat: 32.0167, lng: 34.7667 },
+        'בת ים': { lat: 32.0167, lng: 34.7500 },
+        'ראשון לציון': { lat: 31.9500, lng: 34.8000 },
+        'פתח תקווה': { lat: 32.0833, lng: 34.8833 },
+        'הרצליה': { lat: 32.1667, lng: 34.8333 },
+        'רעננה': { lat: 32.1833, lng: 34.8667 },
+        'כפר סבא': { lat: 32.1833, lng: 34.9000 },
+        'נתניה': { lat: 32.3286, lng: 34.8561 },
+        'רחובות': { lat: 31.8928, lng: 34.8113 },
+        'לוד': { lat: 31.9500, lng: 34.9000 },
+        'רמלה': { lat: 31.9167, lng: 34.8667 },
+        'חיפה': { lat: 32.7940, lng: 34.9896 },
+        'קריית אתא': { lat: 32.8000, lng: 35.1000 },
+        'עכו': { lat: 32.9333, lng: 35.0833 },
+        'נהריה': { lat: 33.0000, lng: 35.0833 },
+        'כרמיאל': { lat: 32.9167, lng: 35.3000 },
+        'עפולה': { lat: 32.6000, lng: 35.2833 },
+        'טבריה': { lat: 32.7897, lng: 35.5317 },
+        'צפת': { lat: 32.9658, lng: 35.4983 },
+        'באר שבע': { lat: 31.2589, lng: 34.7997 },
+        'אשדוד': { lat: 31.8000, lng: 34.6500 },
+        'אשקלון': { lat: 31.6658, lng: 34.5664 },
+        'קריית גת': { lat: 31.6100, lng: 34.7700 },
+        'שדרות': { lat: 31.5167, lng: 34.5833 },
+        'אופקים': { lat: 31.3167, lng: 34.6167 },
+        'נתיבות': { lat: 31.4167, lng: 34.5833 },
+        'אריאל': { lat: 32.1000, lng: 35.1833 },
+        'אפרת': { lat: 31.6500, lng: 35.1500 },
+    };
+
+    // חישוב מרחק בקילומטרים (Haversine formula)
+    function calculateDistance(lat1, lng1, lat2, lng2) {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLng = (lng2 - lng1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLng/2) * Math.sin(dLng/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+    }
+
+    // מצא את העיר הקרובה ביותר לקואורדינטות
+    function findNearestCity(lat, lng, maxDistanceKm = 15) {
+        let nearestCity = null;
+        let nearestDistance = Infinity;
+        for (const [cityName, coords] of Object.entries(CITIES_COORDINATES)) {
+            const distance = calculateDistance(lat, lng, coords.lat, coords.lng);
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearestCity = cityName;
+            }
+        }
+        if (nearestDistance <= maxDistanceKm) {
+            return { city: nearestCity, distance: nearestDistance };
+        }
+        return null;
+    }
+
+    // בדוק אם יש התראה לאזור מסוים
+    function hasAlertForArea(alertCities, userCity) {
+        if (!Array.isArray(alertCities) || !userCity) return false;
+        const userCityLower = userCity.toLowerCase();
+        const userCityBase = userCity.split(' - ')[0].toLowerCase();
+        return alertCities.some(city => {
+            const cityLower = (city || '').toLowerCase();
+            const cityBase = city.split(' - ')[0].toLowerCase();
+            return cityLower === userCityLower ||
+                   cityLower.includes(userCityLower) ||
+                   userCityLower.includes(cityLower) ||
+                   cityBase === userCityBase;
+        });
+    }
+
+    let detectedNearestCity = null;
+
     function getUserLocation() {
         if (!navigator.geolocation) return;
         navigator.geolocation.getCurrentPosition(
             pos => {
                 userLocation.lat = pos.coords.latitude;
                 userLocation.lng = pos.coords.longitude;
-                console.log('📍 מיקום זוהה:', userLocation.lat, userLocation.lng);
+                const nearest = findNearestCity(userLocation.lat, userLocation.lng);
+                if (nearest) {
+                    detectedNearestCity = nearest.city;
+                    console.log('📍 מיקום זוהה:', nearest.city, '(' + nearest.distance.toFixed(1) + ' ק"מ)');
+                } else {
+                    console.log('📍 מיקום זוהה:', userLocation.lat, userLocation.lng);
+                }
             },
             err => {
                 console.log('⚠️ לא ניתן לזהות מיקום:', err.message);
@@ -1865,19 +1962,67 @@
         );
     }
 
+    // רשימת פרוקסי CORS - ננסה כמה אם אחד נכשל
+    const CORS_PROXIES = [
+        'https://api.allorigins.win/raw?url=',
+        'https://corsproxy.io/?',
+        'https://api.codetabs.com/v1/proxy?quest='
+    ];
+    let currentProxyIndex = 0;
+    const OREF_API_URL = 'https://www.oref.org.il/WarningMessages/alert/alerts.json';
+
+    async function fetchOrefAlerts() {
+        for (let i = 0; i < CORS_PROXIES.length; i++) {
+            const proxyIndex = (currentProxyIndex + i) % CORS_PROXIES.length;
+            const proxy = CORS_PROXIES[proxyIndex];
+            try {
+                const response = await fetch(proxy + encodeURIComponent(OREF_API_URL), {
+                    credentials: 'omit',
+                    cache: 'no-store'
+                });
+                if (!response.ok) continue;
+                const text = await response.text();
+                if (!text || text.trim() === '' || text.trim() === '{}' || text.trim() === '[]') {
+                    return { data: [], success: true }; // אין התראות
+                }
+                const data = JSON.parse(text);
+                currentProxyIndex = proxyIndex; // זכור את הפרוקסי שעבד
+                return { data: data, success: true };
+            } catch (e) {
+                continue;
+            }
+        }
+        return { data: null, success: false };
+    }
+
     function checkEmergencyAlert() {
         if (!liveViewSettings.emergencyAlertsEnabled) return;
-        const base = (liveViewSettings.emergencyAlertsApiUrl || 'http://localhost:3000').replace(/\/$/, '');
-        let url = base + '/api/alert';
         
-        // הוסף קואורדינטות אם יש
-        if (userLocation.lat && userLocation.lng) {
-            url += '?lat=' + userLocation.lat + '&lng=' + userLocation.lng;
-        }
-        
-        fetch(url, { credentials: 'omit' }).then(r => r.json()).then(data => {
-            if (data.hasJerusalemAlert && data.alert) showEmergencyBanner(data.alert);
-            else hideEmergencyBanner();
+        fetchOrefAlerts().then(result => {
+            if (!result.success || !result.data) return;
+            
+            const alerts = Array.isArray(result.data) ? result.data : (result.data.data || []);
+            if (!alerts.length) {
+                hideEmergencyBanner();
+                return;
+            }
+
+            // אסוף את כל הערים עם התראות
+            let alertCities = [];
+            alerts.forEach(alert => {
+                if (alert.data) alertCities = alertCities.concat(alert.data);
+                if (alert.cities) alertCities = alertCities.concat(alert.cities);
+            });
+
+            // בדוק אם יש התראה באזור של המשתמש
+            if (detectedNearestCity && hasAlertForArea(alertCities, detectedNearestCity)) {
+                showEmergencyBanner({
+                    cities: [detectedNearestCity],
+                    instructions: 'רבותי! כעת זה הזמן שלנו להכות על ראשי נגידי עם היושבים במקלטים.'
+                });
+            } else {
+                hideEmergencyBanner();
+            }
         }).catch(() => {});
     }
     function startEmergencyAlertsInterval() {
@@ -1929,62 +2074,31 @@
     }
 
     function testEmergencyConnection() {
-        const urlInput = document.getElementById('lvEmergencyAlertsApiUrl');
-        const base = (urlInput ? urlInput.value : liveViewSettings.emergencyAlertsApiUrl || 'http://localhost:3000').replace(/\/$/, '');
-        let url = base + '/api/alert';
+        updateEmergencyStatusUI('checking', 'בודק חיבור לפיקוד העורף...');
         
-        // הוסף קואורדינטות אם יש
-        if (userLocation.lat && userLocation.lng) {
-            url += '?lat=' + userLocation.lat + '&lng=' + userLocation.lng;
-        }
-        
-        updateEmergencyStatusUI('checking', 'בודק חיבור...');
-        fetch(url, { credentials: 'omit' })
-            .then(r => {
-                if (!r.ok) throw new Error('שגיאת שרת: ' + r.status);
-                return r.json();
-            })
-            .then(data => {
-                if (data.hasJerusalemAlert !== undefined) {
-                    let statusMsg = 'מחובר לשרת ✓';
-                    if (data.nearestCity) {
-                        statusMsg += ' | ' + data.nearestCity;
-                    }
-                    updateEmergencyStatusUI('connected', statusMsg);
-                } else {
-                    updateEmergencyStatusUI('connected', 'מחובר (פורמט לא צפוי)');
+        fetchOrefAlerts().then(result => {
+            if (result.success) {
+                let statusMsg = 'מחובר לפיקוד העורף ✓';
+                if (detectedNearestCity) {
+                    statusMsg += ' | ' + detectedNearestCity;
+                } else if (userLocation.lat && userLocation.lng) {
+                    statusMsg += ' | מיקום זוהה';
                 }
-            })
-            .catch(err => {
-                updateEmergencyStatusUI('error', 'שגיאה: ' + (err.message || 'לא ניתן להתחבר'));
-            });
+                updateEmergencyStatusUI('connected', statusMsg);
+            } else {
+                updateEmergencyStatusUI('error', 'שגיאה: לא ניתן להתחבר לפיקוד העורף');
+            }
+        }).catch(err => {
+            updateEmergencyStatusUI('error', 'שגיאה: ' + (err.message || 'לא ניתן להתחבר'));
+        });
     }
 
     function testEmergencyAlert() {
-        // נסה לקבל התראת טסט מהשרת עם המיקום
-        const base = (liveViewSettings.emergencyAlertsApiUrl || 'http://localhost:3000').replace(/\/$/, '');
-        let url = base + '/api/test';
-        if (userLocation.lat && userLocation.lng) {
-            url += '?lat=' + userLocation.lat + '&lng=' + userLocation.lng;
-        }
-        
-        fetch(url, { credentials: 'omit' })
-            .then(r => r.json())
-            .then(data => {
-                if (data.city) {
-                    showEmergencyBanner({
-                        cities: [data.city],
-                        instructions: 'היכנסו למרחב המוגן, נעלו את הדלתות וסגרו את החלונות'
-                    });
-                }
-            })
-            .catch(() => {
-                // אם השרת לא זמין, הצג התראה כללית
-                showEmergencyBanner({
-                    cities: ['האזור שלך'],
-                    instructions: 'היכנסו למרחב המוגן, נעלו את הדלתות וסגרו את החלונות'
-                });
-            });
+        const cityName = detectedNearestCity || 'האזור שלך';
+        showEmergencyBanner({
+            cities: [cityName],
+            instructions: 'רבותי! כעת זה הזמן שלנו להכות על ראשי נגידי עם היושבים במקלטים.'
+        });
     }
 
     window.toggleLiveViewFullscreen = toggleLiveViewFullscreen;
