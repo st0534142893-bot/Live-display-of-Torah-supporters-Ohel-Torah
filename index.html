@@ -803,6 +803,7 @@
     let emergencyAlertsInterval = null;
     let emergencyBannerHideTimer = null;
     let emergencyCountdownInterval = null;
+    let userLocation = { lat: null, lng: null };
     let buttonsHideTimer = null;
     const BUTTONS_HIDE_DELAY_MS = 3000;
     let savedDonorsScrollY = null;
@@ -1849,10 +1850,31 @@
         if (emergencyBannerHideTimer) { clearTimeout(emergencyBannerHideTimer); emergencyBannerHideTimer = null; }
         if (emergencyCountdownInterval) { clearInterval(emergencyCountdownInterval); emergencyCountdownInterval = null; }
     }
+    function getUserLocation() {
+        if (!navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(
+            pos => {
+                userLocation.lat = pos.coords.latitude;
+                userLocation.lng = pos.coords.longitude;
+                console.log('📍 מיקום זוהה:', userLocation.lat, userLocation.lng);
+            },
+            err => {
+                console.log('⚠️ לא ניתן לזהות מיקום:', err.message);
+            },
+            { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+        );
+    }
+
     function checkEmergencyAlert() {
         if (!liveViewSettings.emergencyAlertsEnabled) return;
         const base = (liveViewSettings.emergencyAlertsApiUrl || 'http://localhost:3000').replace(/\/$/, '');
-        const url = base + '/api/alert';
+        let url = base + '/api/alert';
+        
+        // הוסף קואורדינטות אם יש
+        if (userLocation.lat && userLocation.lng) {
+            url += '?lat=' + userLocation.lat + '&lng=' + userLocation.lng;
+        }
+        
         fetch(url, { credentials: 'omit' }).then(r => r.json()).then(data => {
             if (data.hasJerusalemAlert && data.alert) showEmergencyBanner(data.alert);
             else hideEmergencyBanner();
@@ -1875,6 +1897,10 @@
             if (liveViewSettings.tvModeEnabled) document.body.classList.add('tv-mode');
             else document.body.classList.remove('tv-mode');
         } catch (e) {}
+        
+        // זהה מיקום המשתמש להתראות מבוססות מיקום
+        getUserLocation();
+        
         const overlay = document.getElementById('loadingOverlay');
         try {
             await refresh();
@@ -1905,7 +1931,13 @@
     function testEmergencyConnection() {
         const urlInput = document.getElementById('lvEmergencyAlertsApiUrl');
         const base = (urlInput ? urlInput.value : liveViewSettings.emergencyAlertsApiUrl || 'http://localhost:3000').replace(/\/$/, '');
-        const url = base + '/api/alert';
+        let url = base + '/api/alert';
+        
+        // הוסף קואורדינטות אם יש
+        if (userLocation.lat && userLocation.lng) {
+            url += '?lat=' + userLocation.lat + '&lng=' + userLocation.lng;
+        }
+        
         updateEmergencyStatusUI('checking', 'בודק חיבור...');
         fetch(url, { credentials: 'omit' })
             .then(r => {
@@ -1914,7 +1946,11 @@
             })
             .then(data => {
                 if (data.hasJerusalemAlert !== undefined) {
-                    updateEmergencyStatusUI('connected', 'מחובר לשרת ✓');
+                    let statusMsg = 'מחובר לשרת ✓';
+                    if (data.nearestCity) {
+                        statusMsg += ' | ' + data.nearestCity;
+                    }
+                    updateEmergencyStatusUI('connected', statusMsg);
                 } else {
                     updateEmergencyStatusUI('connected', 'מחובר (פורמט לא צפוי)');
                 }
@@ -1925,10 +1961,30 @@
     }
 
     function testEmergencyAlert() {
-        showEmergencyBanner({
-            cities: ['ירושלים', 'ירושלים - כל האזורים'],
-            instructions: 'היכנסו למרחב המוגן, נעלו את הדלתות וסגרו את החלונות'
-        });
+        // נסה לקבל התראת טסט מהשרת עם המיקום
+        const base = (liveViewSettings.emergencyAlertsApiUrl || 'http://localhost:3000').replace(/\/$/, '');
+        let url = base + '/api/test';
+        if (userLocation.lat && userLocation.lng) {
+            url += '?lat=' + userLocation.lat + '&lng=' + userLocation.lng;
+        }
+        
+        fetch(url, { credentials: 'omit' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.city) {
+                    showEmergencyBanner({
+                        cities: [data.city],
+                        instructions: 'היכנסו למרחב המוגן, נעלו את הדלתות וסגרו את החלונות'
+                    });
+                }
+            })
+            .catch(() => {
+                // אם השרת לא זמין, הצג התראה כללית
+                showEmergencyBanner({
+                    cities: ['האזור שלך'],
+                    instructions: 'היכנסו למרחב המוגן, נעלו את הדלתות וסגרו את החלונות'
+                });
+            });
     }
 
     window.toggleLiveViewFullscreen = toggleLiveViewFullscreen;
