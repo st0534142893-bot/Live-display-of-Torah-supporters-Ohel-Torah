@@ -752,6 +752,8 @@
                     <h4>התראות חירום (פיקוד העורף)</h4>
                     <div class="liveview-setting-row"><label>הפעל התראות חירום:</label><label class="switch"><input type="checkbox" id="lvEmergencyAlertsEnabled"><span class="switch-slider"></span></label></div>
                     <div class="liveview-setting-row" style="flex-direction: column; align-items: stretch; gap: 4px;">
+                        <label>כתובת שרת:</label>
+                        <input type="text" id="lvEmergencyAlertsApiUrl" value="https://redalert-server-production.up.railway.app" style="padding: 8px; border-radius: 8px; font-size: 14px;">
                         <span style="font-size: 12px; color: var(--muted);">התראות יופיעו רק כשיש צבע אדום באזור שלך (לפי מיקום המכשיר)</span>
                     </div>
                     <div class="liveview-setting-row"><label>בדיקה כל (שניות):</label><select id="lvEmergencyCheckInterval"><option value="15">15 שניות</option><option value="30" selected>30 שניות</option><option value="60">דקה</option><option value="90">דקה וחצי</option><option value="120">2 דקות</option></select></div>
@@ -857,6 +859,7 @@
             updateType: 'all',
             tvModeEnabled: false,
             emergencyAlertsEnabled: true,
+            emergencyAlertsApiUrl: 'https://redalert-server-production.up.railway.app',
             emergencyCheckIntervalSeconds: 30,
             emergencyDisplayDurationSeconds: 30,
             ...liveViewSettings
@@ -1725,6 +1728,7 @@
         set('lvUpdateInterval', String(s.updateIntervalMinutes || 5));
         set('lvUpdateType', s.updateType || 'all');
         setCheck('lvEmergencyAlertsEnabled', s.emergencyAlertsEnabled);
+        set('lvEmergencyAlertsApiUrl', s.emergencyAlertsApiUrl || 'https://redalert-server-production.up.railway.app');
         set('lvEmergencyCheckInterval', String(s.emergencyCheckIntervalSeconds || 30));
         set('lvEmergencyDisplayDuration', String(s.emergencyDisplayDurationSeconds || 30));
     }
@@ -1785,6 +1789,7 @@
             updateIntervalMinutes: parseInt(document.getElementById('lvUpdateInterval')?.value) || 5,
             updateType: document.getElementById('lvUpdateType')?.value || 'all',
             emergencyAlertsEnabled: !!document.getElementById('lvEmergencyAlertsEnabled')?.checked,
+            emergencyAlertsApiUrl: (document.getElementById('lvEmergencyAlertsApiUrl')?.value || '').trim() || 'https://redalert-server-production.up.railway.app',
             emergencyCheckIntervalSeconds: parseInt(document.getElementById('lvEmergencyCheckInterval')?.value) || 30,
             emergencyDisplayDurationSeconds: parseInt(document.getElementById('lvEmergencyDisplayDuration')?.value) || 30
         };
@@ -1964,9 +1969,10 @@
 
     // רשימת פרוקסי CORS - ננסה כמה אם אחד נכשל
     const CORS_PROXIES = [
-        'https://api.allorigins.win/raw?url=',
-        'https://corsproxy.io/?',
-        'https://api.codetabs.com/v1/proxy?quest='
+        { url: 'https://api.allorigins.win/get?url=', jsonWrap: true },
+        { url: 'https://api.cors.lol/?url=', jsonWrap: false },
+        { url: 'https://corsproxy.io/?url=', jsonWrap: false },
+        { url: 'https://thingproxy.freeboard.io/fetch/', jsonWrap: false, noEncode: true }
     ];
     let currentProxyIndex = 0;
     const OREF_API_URL = 'https://www.oref.org.il/WarningMessages/alert/alerts.json';
@@ -1974,55 +1980,66 @@
     async function fetchOrefAlerts() {
         for (let i = 0; i < CORS_PROXIES.length; i++) {
             const proxyIndex = (currentProxyIndex + i) % CORS_PROXIES.length;
-            const proxy = CORS_PROXIES[proxyIndex];
+            const proxyConfig = CORS_PROXIES[proxyIndex];
             try {
-                const response = await fetch(proxy + encodeURIComponent(OREF_API_URL), {
+                const fetchUrl = proxyConfig.noEncode 
+                    ? proxyConfig.url + OREF_API_URL
+                    : proxyConfig.url + encodeURIComponent(OREF_API_URL);
+                
+                console.log('Trying proxy:', proxyConfig.url);
+                
+                const response = await fetch(fetchUrl, {
                     credentials: 'omit',
-                    cache: 'no-store'
+                    cache: 'no-store',
+                    mode: 'cors'
                 });
-                if (!response.ok) continue;
-                const text = await response.text();
+                
+                if (!response.ok) {
+                    console.log('Proxy response not ok:', response.status);
+                    continue;
+                }
+                
+                let text = await response.text();
+                console.log('Proxy response:', text.substring(0, 100));
+                
+                // אם זה פרוקסי שעוטף ב-JSON
+                if (proxyConfig.jsonWrap && text) {
+                    try {
+                        const wrapped = JSON.parse(text);
+                        text = wrapped.contents || '';
+                    } catch (e) {}
+                }
+                
                 if (!text || text.trim() === '' || text.trim() === '{}' || text.trim() === '[]') {
+                    currentProxyIndex = proxyIndex;
+                    console.log('No active alerts');
                     return { data: [], success: true }; // אין התראות
                 }
                 const data = JSON.parse(text);
-                currentProxyIndex = proxyIndex; // זכור את הפרוקסי שעבד
+                currentProxyIndex = proxyIndex;
+                console.log('Alerts found:', data);
                 return { data: data, success: true };
             } catch (e) {
+                console.log('Proxy failed:', proxyConfig.url, e.message);
                 continue;
             }
         }
+        console.log('All proxies failed');
         return { data: null, success: false };
     }
 
     function checkEmergencyAlert() {
         if (!liveViewSettings.emergencyAlertsEnabled) return;
+        const base = (liveViewSettings.emergencyAlertsApiUrl || 'https://redalert-server-production.up.railway.app').replace(/\/$/, '');
+        let url = base + '/api/alert';
         
-        fetchOrefAlerts().then(result => {
-            if (!result.success || !result.data) return;
-            
-            const alerts = Array.isArray(result.data) ? result.data : (result.data.data || []);
-            if (!alerts.length) {
-                hideEmergencyBanner();
-                return;
-            }
-
-            // אסוף את כל הערים עם התראות
-            let alertCities = [];
-            alerts.forEach(alert => {
-                if (alert.data) alertCities = alertCities.concat(alert.data);
-                if (alert.cities) alertCities = alertCities.concat(alert.cities);
-            });
-
-            // בדוק אם יש התראה באזור של המשתמש
-            if (detectedNearestCity && hasAlertForArea(alertCities, detectedNearestCity)) {
-                showEmergencyBanner({
-                    cities: [detectedNearestCity],
-                    instructions: 'רבותי! כעת זה הזמן שלנו להכות על ראשי נגידי עם היושבים במקלטים.'
-                });
-            } else {
-                hideEmergencyBanner();
-            }
+        if (userLocation.lat && userLocation.lng) {
+            url += '?lat=' + userLocation.lat + '&lng=' + userLocation.lng;
+        }
+        
+        fetch(url, { credentials: 'omit' }).then(r => r.json()).then(data => {
+            if (data.hasJerusalemAlert && data.alert) showEmergencyBanner(data.alert);
+            else hideEmergencyBanner();
         }).catch(() => {});
     }
     function startEmergencyAlertsInterval() {
@@ -2074,31 +2091,59 @@
     }
 
     function testEmergencyConnection() {
-        updateEmergencyStatusUI('checking', 'בודק חיבור לפיקוד העורף...');
+        const urlInput = document.getElementById('lvEmergencyAlertsApiUrl');
+        const base = (urlInput ? urlInput.value : liveViewSettings.emergencyAlertsApiUrl || 'https://redalert-server-production.up.railway.app').replace(/\/$/, '');
+        let url = base + '/api/alert';
         
-        fetchOrefAlerts().then(result => {
-            if (result.success) {
-                let statusMsg = 'מחובר לפיקוד העורף ✓';
-                if (detectedNearestCity) {
-                    statusMsg += ' | ' + detectedNearestCity;
-                } else if (userLocation.lat && userLocation.lng) {
-                    statusMsg += ' | מיקום זוהה';
+        if (userLocation.lat && userLocation.lng) {
+            url += '?lat=' + userLocation.lat + '&lng=' + userLocation.lng;
+        }
+        
+        updateEmergencyStatusUI('checking', 'בודק חיבור...');
+        fetch(url, { credentials: 'omit' })
+            .then(r => {
+                if (!r.ok) throw new Error('שגיאת שרת: ' + r.status);
+                return r.json();
+            })
+            .then(data => {
+                if (data.serverRunning) {
+                    let statusMsg = 'מחובר לשרת ✓';
+                    if (data.nearestCity) {
+                        statusMsg += ' | ' + data.nearestCity;
+                    }
+                    updateEmergencyStatusUI('connected', statusMsg);
+                } else {
+                    updateEmergencyStatusUI('connected', 'מחובר (פורמט לא צפוי)');
                 }
-                updateEmergencyStatusUI('connected', statusMsg);
-            } else {
-                updateEmergencyStatusUI('error', 'שגיאה: לא ניתן להתחבר לפיקוד העורף');
-            }
-        }).catch(err => {
-            updateEmergencyStatusUI('error', 'שגיאה: ' + (err.message || 'לא ניתן להתחבר'));
-        });
+            })
+            .catch(err => {
+                updateEmergencyStatusUI('error', 'שגיאה: ' + (err.message || 'לא ניתן להתחבר'));
+            });
     }
 
     function testEmergencyAlert() {
-        const cityName = detectedNearestCity || 'האזור שלך';
-        showEmergencyBanner({
-            cities: [cityName],
-            instructions: 'רבותי! כעת זה הזמן שלנו להכות על ראשי נגידי עם היושבים במקלטים.'
-        });
+        const base = (liveViewSettings.emergencyAlertsApiUrl || 'https://redalert-server-production.up.railway.app').replace(/\/$/, '');
+        let url = base + '/api/test';
+        if (userLocation.lat && userLocation.lng) {
+            url += '?lat=' + userLocation.lat + '&lng=' + userLocation.lng;
+        }
+        
+        fetch(url, { credentials: 'omit' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.city) {
+                    showEmergencyBanner({
+                        cities: [data.city],
+                        instructions: 'רבותי! כעת זה הזמן שלנו להכות על ראשי נגידי עם היושבים במקלטים.'
+                    });
+                }
+            })
+            .catch(() => {
+                showEmergencyBanner({
+                    cities: ['האזור שלך'],
+                    instructions: 'רבותי! כעת זה הזמן שלנו להכות על ראשי נגידי עם היושבים במקלטים.'
+                });
+            });
     }
 
     window.toggleLiveViewFullscreen = toggleLiveViewFullscreen;
