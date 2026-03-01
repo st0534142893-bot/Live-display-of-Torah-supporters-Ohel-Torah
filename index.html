@@ -386,6 +386,13 @@
         .live-emergency-banner .emergency-title { font-size: 26px; }
         .live-emergency-banner .emergency-cities { font-size: 18px; opacity: 0.95; }
         .live-emergency-banner .emergency-instructions { font-size: 16px; opacity: 0.9; }
+        .live-emergency-banner .emergency-countdown {
+            font-size: 20px;
+            font-weight: 700;
+            opacity: 0.9;
+            margin-top: 8px;
+            font-variant-numeric: tabular-nums;
+        }
         @keyframes emergencyPulse {
             0%, 100% { box-shadow: 0 4px 24px rgba(185, 28, 28, 0.6); }
             50% { box-shadow: 0 6px 32px rgba(255, 80, 80, 0.8); }
@@ -590,9 +597,10 @@
             <span id="liveTotalBannerPercent" style="display:none;"></span>
         </div>
         <div class="live-emergency-banner" id="liveEmergencyBanner">
-            <span class="emergency-title">⚠️ התראת חירום – פיקוד העורף</span>
+            <span class="emergency-title">⚠️ התראת חירום –פיקוד הגורף</span>
             <span class="emergency-cities" id="emergencyCities"></span>
             <span class="emergency-instructions" id="emergencyInstructions"></span>
+            <span class="emergency-countdown" id="emergencyCountdown"></span>
         </div>
         <div class="live-view-update-indicator" id="liveViewUpdateIndicator">
             <div class="update-indicator-row">
@@ -754,6 +762,7 @@
     let hasLoadedOnce = false;
     let emergencyAlertsInterval = null;
     let emergencyBannerHideTimer = null;
+    let emergencyCountdownInterval = null;
     let buttonsHideTimer = null;
     const BUTTONS_HIDE_DELAY_MS = 3000;
     let savedDonorsScrollY = null;
@@ -1764,18 +1773,37 @@
         const banner = document.getElementById('liveEmergencyBanner');
         const citiesEl = document.getElementById('emergencyCities');
         const instructionsEl = document.getElementById('emergencyInstructions');
+        const countdownEl = document.getElementById('emergencyCountdown');
         if (!banner || !citiesEl || !instructionsEl) return;
         citiesEl.textContent = (alert.cities || []).join(' • ') || 'ירושלים';
-        instructionsEl.textContent = alert.instructions || 'היכנסו למרחב המוגן והמתינו להנחיות';
+        instructionsEl.textContent = alert.instructions || 'כעת זה הזמן להכות על קודקודם של במקלטים';
         banner.classList.add('active');
         if (emergencyBannerHideTimer) clearTimeout(emergencyBannerHideTimer);
-        const duration = (liveViewSettings.emergencyDisplayDurationSeconds || 30) * 1000;
+        if (emergencyCountdownInterval) clearInterval(emergencyCountdownInterval);
+        const durationSec = liveViewSettings.emergencyDisplayDurationSeconds || 30;
+        const duration = durationSec * 1000;
+        let remaining = durationSec;
+        if (countdownEl) {
+            countdownEl.textContent = 'נסגר בעוד ' + remaining + ' שניות';
+            countdownEl.style.display = '';
+            emergencyCountdownInterval = setInterval(() => {
+                remaining--;
+                if (countdownEl) countdownEl.textContent = 'נסגר בעוד ' + remaining + ' שניות';
+                if (remaining <= 0 && emergencyCountdownInterval) {
+                    clearInterval(emergencyCountdownInterval);
+                    emergencyCountdownInterval = null;
+                }
+            }, 1000);
+        }
         emergencyBannerHideTimer = setTimeout(hideEmergencyBanner, duration);
     }
     function hideEmergencyBanner() {
         const banner = document.getElementById('liveEmergencyBanner');
+        const countdownEl = document.getElementById('emergencyCountdown');
         if (banner) banner.classList.remove('active');
+        if (countdownEl) countdownEl.style.display = 'none';
         if (emergencyBannerHideTimer) { clearTimeout(emergencyBannerHideTimer); emergencyBannerHideTimer = null; }
+        if (emergencyCountdownInterval) { clearInterval(emergencyCountdownInterval); emergencyCountdownInterval = null; }
     }
     function checkEmergencyAlert() {
         if (!liveViewSettings.emergencyAlertsEnabled) return;
@@ -1790,6 +1818,7 @@
         if (emergencyAlertsInterval) clearInterval(emergencyAlertsInterval);
         emergencyAlertsInterval = null;
         if (emergencyBannerHideTimer) { clearTimeout(emergencyBannerHideTimer); emergencyBannerHideTimer = null; }
+        if (emergencyCountdownInterval) { clearInterval(emergencyCountdownInterval); emergencyCountdownInterval = null; }
         hideEmergencyBanner();
         if (!liveViewSettings.emergencyAlertsEnabled) return;
         const sec = Math.max(15, parseInt(liveViewSettings.emergencyCheckIntervalSeconds) || 30);
