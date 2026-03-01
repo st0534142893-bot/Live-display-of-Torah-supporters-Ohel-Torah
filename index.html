@@ -573,6 +573,40 @@
         }
         .switch input:checked + .switch-slider { background: var(--primary-gold); }
         .switch input:checked + .switch-slider::before { transform: translateX(22px); }
+        /* אינדיקטור מצב חיבור התראות */
+        .emergency-connection-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.05);
+            margin-top: 8px;
+        }
+        .emergency-status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            background: #9ca3af;
+        }
+        .emergency-status-dot.connected { background: #22c55e; }
+        .emergency-status-dot.checking { background: #f59e0b; animation: statusBlink 1s ease-in-out infinite; }
+        .emergency-status-dot.error { background: #ef4444; }
+        @keyframes statusBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .emergency-status-text { font-size: 13px; color: var(--brown-dark); flex: 1; }
+        .emergency-test-btn {
+            padding: 6px 14px;
+            border-radius: 6px;
+            border: 1px solid var(--primary-gold);
+            background: var(--cream);
+            color: var(--brown-dark);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .emergency-test-btn:hover { background: var(--primary-gold); color: white; }
+        .emergency-test-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -597,7 +631,7 @@
             <span id="liveTotalBannerPercent" style="display:none;"></span>
         </div>
         <div class="live-emergency-banner" id="liveEmergencyBanner">
-            <span class="emergency-title">⚠️ התראת חירום –פיקוד הגורף</span>
+            <span class="emergency-title">⚠️ התראת חירום – פיקוד העורף</span>
             <span class="emergency-cities" id="emergencyCities"></span>
             <span class="emergency-instructions" id="emergencyInstructions"></span>
             <span class="emergency-countdown" id="emergencyCountdown"></span>
@@ -724,6 +758,12 @@
                     </div>
                     <div class="liveview-setting-row"><label>בדיקה כל (שניות):</label><select id="lvEmergencyCheckInterval"><option value="15">15 שניות</option><option value="30" selected>30 שניות</option><option value="60">דקה</option><option value="90">דקה וחצי</option><option value="120">2 דקות</option></select></div>
                     <div class="liveview-setting-row"><label>משך הצגה (שניות):</label><select id="lvEmergencyDisplayDuration"><option value="30" selected>חצי דקה</option><option value="45">45 שניות</option><option value="60">דקה</option></select></div>
+                    <div class="emergency-connection-status">
+                        <div class="emergency-status-dot" id="emergencyStatusDot"></div>
+                        <span class="emergency-status-text" id="emergencyStatusText">לא נבדק</span>
+                        <button type="button" class="emergency-test-btn" id="emergencyTestBtn" onclick="testEmergencyConnection()">בדוק חיבור</button>
+                        <button type="button" class="emergency-test-btn" onclick="testEmergencyAlert()" style="margin-right: 4px;">התראת טסט</button>
+                    </div>
                 </div>
                 <div class="liveview-setting-group">
                     <h4>קישורים</h4>
@@ -1631,6 +1671,10 @@
         bindSettingsInputs();
         overlay.classList.add('show');
         document.addEventListener('keydown', onSettingsEscape);
+        updateEmergencyStatusUI('', 'לא נבדק');
+        if (liveViewSettings.emergencyAlertsEnabled) {
+            setTimeout(testEmergencyConnection, 300);
+        }
     }
     function closeLiveViewSettings() {
         const overlay = document.getElementById('liveviewSettingsOverlay');
@@ -1776,7 +1820,7 @@
         const countdownEl = document.getElementById('emergencyCountdown');
         if (!banner || !citiesEl || !instructionsEl) return;
         citiesEl.textContent = (alert.cities || []).join(' • ') || 'ירושלים';
-        instructionsEl.textContent = alert.instructions || 'כעת זה הזמן להכות על קודקודם של במקלטים';
+        instructionsEl.textContent = alert.instructions || 'היכנסו למרחב המוגן והמתינו להנחיות';
         banner.classList.add('active');
         if (emergencyBannerHideTimer) clearTimeout(emergencyBannerHideTimer);
         if (emergencyCountdownInterval) clearInterval(emergencyCountdownInterval);
@@ -1844,10 +1888,55 @@
         }
     }
 
+    function updateEmergencyStatusUI(status, text) {
+        const dot = document.getElementById('emergencyStatusDot');
+        const textEl = document.getElementById('emergencyStatusText');
+        const btn = document.getElementById('emergencyTestBtn');
+        if (dot) {
+            dot.className = 'emergency-status-dot';
+            if (status === 'checking') dot.classList.add('checking');
+            else if (status === 'connected') dot.classList.add('connected');
+            else if (status === 'error') dot.classList.add('error');
+        }
+        if (textEl) textEl.textContent = text || '';
+        if (btn) btn.disabled = (status === 'checking');
+    }
+
+    function testEmergencyConnection() {
+        const urlInput = document.getElementById('lvEmergencyAlertsApiUrl');
+        const base = (urlInput ? urlInput.value : liveViewSettings.emergencyAlertsApiUrl || 'http://localhost:3000').replace(/\/$/, '');
+        const url = base + '/api/alert';
+        updateEmergencyStatusUI('checking', 'בודק חיבור...');
+        fetch(url, { credentials: 'omit' })
+            .then(r => {
+                if (!r.ok) throw new Error('שגיאת שרת: ' + r.status);
+                return r.json();
+            })
+            .then(data => {
+                if (data.hasJerusalemAlert !== undefined) {
+                    updateEmergencyStatusUI('connected', 'מחובר לשרת ✓');
+                } else {
+                    updateEmergencyStatusUI('connected', 'מחובר (פורמט לא צפוי)');
+                }
+            })
+            .catch(err => {
+                updateEmergencyStatusUI('error', 'שגיאה: ' + (err.message || 'לא ניתן להתחבר'));
+            });
+    }
+
+    function testEmergencyAlert() {
+        showEmergencyBanner({
+            cities: ['ירושלים', 'ירושלים - כל האזורים'],
+            instructions: 'היכנסו למרחב המוגן, נעלו את הדלתות וסגרו את החלונות'
+        });
+    }
+
     window.toggleLiveViewFullscreen = toggleLiveViewFullscreen;
     window.openLiveViewSettings = openLiveViewSettings;
     window.closeLiveViewSettings = closeLiveViewSettings;
     window.saveLiveViewSettingsFromPanel = saveLiveViewSettingsFromPanel;
+    window.testEmergencyConnection = testEmergencyConnection;
+    window.testEmergencyAlert = testEmergencyAlert;
 
     init();
 })();
