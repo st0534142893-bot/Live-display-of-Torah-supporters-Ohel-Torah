@@ -864,6 +864,11 @@
             emergencyDisplayDurationSeconds: 30,
             ...liveViewSettings
         };
+        // עדכון אוטומטי מכתובת ישנה לחדשה
+        if (liveViewSettings.emergencyAlertsApiUrl === 'http://localhost:3000' || !liveViewSettings.emergencyAlertsApiUrl) {
+            liveViewSettings.emergencyAlertsApiUrl = 'https://redalert-server-production.up.railway.app';
+            try { localStorage.setItem('liveViewSettings', JSON.stringify(liveViewSettings)); } catch(e) {}
+        }
         const oldGap = liveViewSettings.donorGap;
         if (liveViewSettings.donorGapVertical == null) liveViewSettings.donorGapVertical = oldGap ?? 10;
         if (liveViewSettings.donorGapHorizontal == null) liveViewSettings.donorGapHorizontal = oldGap ?? 10;
